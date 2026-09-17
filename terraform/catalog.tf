@@ -2,22 +2,19 @@
 Unity Catalog: catálogo "pokedex" + schemas bronze/silver/gold
 (reglas/01-datos-medallion.md, reglas/02-infra-terraform.md).
 
-No se define storage_root: se apoya en el metastore de Unity Catalog que
-Azure Databricks asigna automáticamente a workspaces nuevos (managed
-storage default). SI el `terraform apply` falla acá con algo del estilo
-"no metastore assigned to workspace" / "UNAUTHORIZED" en
-databricks_catalog, es porque esta suscripción/tenant todavía no tiene
-metastore auto-asignado en la región elegida -- hay que asignarlo a mano
-una vez (Databricks Account Console, nivel cuenta, no workspace) antes de
-reintentar el apply. No lo pudimos confirmar de antemano porque requiere
-un workspace real ya desplegado para verificarlo.
+storage_root apunta a la External Location creada en
+unity_catalog_storage.tf -- el metastore de esta cuenta tiene "Default
+Storage" sin root URL propio, así que el catálogo necesita su managed
+location explícita (confirmado con el error real del primer apply, ver
+comentario en unity_catalog_storage.tf).
 */
 
 resource "databricks_catalog" "this" {
-  name    = var.catalog_name
-  comment = "Plataforma de datos Pokémon -- Bronze/Silver/Gold (reglas/01-datos-medallion.md)."
+  name         = var.catalog_name
+  comment      = "Plataforma de datos Pokémon -- Bronze/Silver/Gold (reglas/01-datos-medallion.md)."
+  storage_root = databricks_external_location.unity_catalog_root.url
 
-  depends_on = [azurerm_databricks_workspace.this]
+  depends_on = [databricks_external_location.unity_catalog_root]
 }
 
 resource "databricks_schema" "bronze" {

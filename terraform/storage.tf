@@ -51,3 +51,14 @@ resource "azurerm_storage_container" "gold" {
   storage_account_id    = azurerm_storage_account.this.id
   container_access_type = "private"
 }
+
+# Container dedicado a la managed storage de Unity Catalog (ver
+# unity_catalog_storage.tf) -- separado de bronze/silver/gold de arriba,
+# que quedan libres para el export/backup plano mencionado en
+# reglas/02-infra-terraform.md, sin mezclarlo con los archivos internos
+# que Unity Catalog gestiona bajo su storage root.
+resource "azurerm_storage_container" "unity_catalog" {
+  name                  = "unity-catalog"
+  storage_account_id    = azurerm_storage_account.this.id
+  container_access_type = "private"
+}
