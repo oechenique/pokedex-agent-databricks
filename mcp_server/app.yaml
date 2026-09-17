@@ -1,0 +1,13 @@
+# Databricks App config -- sin Dockerfile, Databricks Apps corre esto
+# directo con app.py + requirements.txt (reglas/02-infra-terraform.md).
+command: ["python", "app.py"]
+
+env:
+  - name: DATABRICKS_CATALOG
+    value: "pokedex"
+  # DATABRICKS_WAREHOUSE_ID lo inyecta el resource "sql_warehouse" que se
+  # bindea al desplegar la app (terraform/apps.tf, todavía no escrito --
+  # esta fase es solo el código del servidor). Para correr/probar local
+  # se exporta a mano: DATABRICKS_WAREHOUSE_ID=<id del warehouse>.
+  - name: DATABRICKS_WAREHOUSE_ID
+    valueFrom: "sql_warehouse"

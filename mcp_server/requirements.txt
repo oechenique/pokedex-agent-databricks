@@ -1,0 +1,2 @@
+mcp>=2.0,<3.0
+databricks-sdk>=0.60

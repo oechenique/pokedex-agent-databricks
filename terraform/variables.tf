@@ -34,6 +34,12 @@ variable "catalog_name" {
   default     = "pokedex"
 }
 
+variable "sql_warehouse_id" {
+  description = "Id del SQL warehouse que consulta el MCP server (apps.tf). Es el 'Serverless Starter Warehouse' que la cuenta ya trae por default -- no lo gestiona este Terraform, por eso es variable y no un recurso databricks_sql_endpoint."
+  type        = string
+  default     = "e783d583f5b7768d"
+}
+
 variable "tags" {
   description = "Tags comunes para todos los recursos."
   type        = map(string)
