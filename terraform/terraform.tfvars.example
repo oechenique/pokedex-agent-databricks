@@ -1,0 +1,9 @@
+# Copiar a terraform.tfvars (gitignored) y ajustar si hace falta.
+# No hace falta ninguna credencial de Azure acá -- Terraform usa la
+# sesión de `az login` ya activa (ver terraform/providers.tf). PokeAPI
+# tampoco necesita API key, así que esta fase no requiere ningún secret.
+
+project_prefix = "pokedex"
+environment    = "demo"
+location       = "westus3"
+catalog_name   = "pokedex"
