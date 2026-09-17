@@ -61,3 +61,21 @@ resource "databricks_notebook" "bronze_moves" {
   source     = "${path.module}/notebooks/bronze_moves.py"
   depends_on = [databricks_directory.notebooks, databricks_workspace_file.pokeapi_client]
 }
+
+resource "databricks_notebook" "silver" {
+  path       = "${local.workspace_root}/notebooks/silver"
+  source     = "${path.module}/notebooks/silver.py"
+  depends_on = [databricks_directory.notebooks]
+}
+
+resource "databricks_notebook" "dq_check" {
+  path       = "${local.workspace_root}/notebooks/dq_check"
+  source     = "${path.module}/notebooks/dq_check.py"
+  depends_on = [databricks_directory.notebooks]
+}
+
+resource "databricks_notebook" "gold" {
+  path       = "${local.workspace_root}/notebooks/gold"
+  source     = "${path.module}/notebooks/gold.py"
+  depends_on = [databricks_directory.notebooks]
+}

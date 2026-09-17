@@ -14,7 +14,7 @@ output "catalog_name" {
   value = databricks_catalog.this.name
 }
 
-output "bronze_ingest_job_id" {
-  description = "Para correr el pipeline: databricks jobs run-now --job-id <este id>"
-  value       = databricks_job.bronze_ingest.id
+output "pipeline_job_id" {
+  description = "Para correr el pipeline completo: databricks jobs run-now --job-id <este id>"
+  value       = databricks_job.pipeline.id
 }

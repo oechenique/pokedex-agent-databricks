@@ -1,23 +1,24 @@
 /*
-Job bronze_ingest: las 5 tasks Bronze corren en paralelo -- son
-independientes entre sí (cada una pega a un endpoint distinto de PokeAPI
-y escribe su propia tabla), no hay depends_on entre ellas.
+Job pipeline: bronze (5 tasks en paralelo, independientes entre sí) ->
+silver_transform (depende de las 5, aunque solo lee pokemon_api_raw y
+pokemon_species_raw -- se deja depender de las 5 para no arrancar Silver
+con Bronze a medio refrescar) -> dq_check (depende de silver_transform)
+-> gold_aggregate (depende de dq_check).
 
-Compute: serverless, sin job_cluster ni node_type_id -- mismo motivo que
-asesor-turismo-databricks/terraform/job.tf: CLOUD_PROVIDER_RESOURCE_STOCKOUT
-repetido con tamaños de VM clásicos. Como todas las tasks son
-notebook_task, alcanza con no declarar job_cluster para que Databricks
-resuelva serverless automáticamente.
+Encadenamiento real, no cosmético: dq_check.py levanta una excepción si
+algún check de reglas/01-datos-medallion.md falla, el task queda FAILED,
+y como gold_aggregate depende de él con la condición default del job
+(ALL_SUCCESS), ese task directamente no corre -- Gold nunca se
+actualiza con datos que no pasaron el gate. Mismo patrón de "un job con
+DAG interno" que asesor-turismo-databricks/terraform/job.tf.
 
-catalog_name/base_url son parámetros del job (no hardcodeados en cada
-notebook) para poder apuntar a otro catálogo o mirrorear la API sin tocar
-código. `limit=0` trae el dataset completo -- subirlo a un número chico
-(ej. 20) sirve para una corrida de prueba rápida sin esperar el pull
-entero de PokeAPI.
+Compute: serverless en las 8 tasks, mismo motivo que ya quedó documentado
+en la Fase 1 de este archivo (CLOUD_PROVIDER_RESOURCE_STOCKOUT con
+tamaños de VM clásicos).
 */
 
-resource "databricks_job" "bronze_ingest" {
-  name = "${var.project_prefix}-bronze-ingest"
+resource "databricks_job" "pipeline" {
+  name = "${var.project_prefix}-pipeline"
 
   parameter {
     name    = "catalog_name"
@@ -71,7 +72,35 @@ resource "databricks_job" "bronze_ingest" {
     }
   }
 
+  task {
+    task_key = "silver_transform"
+    notebook_task {
+      notebook_path = databricks_notebook.silver.path
+    }
+    depends_on { task_key = "bronze_pokemon_api" }
+    depends_on { task_key = "bronze_species" }
+    depends_on { task_key = "bronze_types" }
+    depends_on { task_key = "bronze_abilities" }
+    depends_on { task_key = "bronze_moves" }
+  }
+
+  task {
+    task_key = "dq_check"
+    notebook_task {
+      notebook_path = databricks_notebook.dq_check.path
+    }
+    depends_on { task_key = "silver_transform" }
+  }
+
+  task {
+    task_key = "gold_aggregate"
+    notebook_task {
+      notebook_path = databricks_notebook.gold.path
+    }
+    depends_on { task_key = "dq_check" }
+  }
+
   tags = merge(var.tags, { environment = var.environment })
 
-  depends_on = [databricks_schema.bronze]
+  depends_on = [databricks_schema.bronze, databricks_schema.silver, databricks_schema.gold]
 }
