@@ -1,6 +1,6 @@
 # 07 — Estado actual del proyecto
 
-_Última actualización: Fase 4 cerrada (agente + hooks + tool_choice, 3 conversaciones manuales validadas en vivo), 2026-09-18._
+_Última actualización: Fase 5 cerrada (frontend Día/Noche + backend FastAPI real, validado en vivo con datos reales), 2026-09-18._
 
 ## Qué está cerrado
 
@@ -33,10 +33,24 @@ Fase 4 cerrada -- ver commit para el detalle de archivos (`agent/`).
 
 **Hallazgo aparte (no bloqueante, no arreglado):** el texto de `lore` que devuelve `get_pokemon_stats` tiene caracteres acentuados corrompidos (`Pok�mon` en vez de `Pokémon`) -- probable mismatch de encoding en algún punto del pipeline Bronze→Silver→Gold. No es de esta fase, pero conviene anotarlo para revisar el encoding de la ingesta de `pokemon-species` (flavor text) en algún momento.
 
+## Fase 5 — Frontend Día/Noche + backend FastAPI real (cerrada)
+
+**Arquitectura:** dos piezas nuevas, ninguna toca `agent/*.py` de Fase 4.
+
+- `backend/` — FastAPI pensado para Vercel Python runtime (`pyproject.toml` con `[tool.vercel] entrypoint = "backend.app:app"`, Root Directory del proyecto Vercel queda en la raíz del repo para que `agent/` viaje en el mismo bundle sin duplicar código; `vercel.json` excluye `frontend/`, `terraform/`, etc. del bundle). `app.py` importa `agent/agent.py` y `mcp_client.py` tal cual via `sys.path` (mismo patrón que `agent/cli.py`), expone `/api/chat` stateless (el front manda el historial completo cada vez, como pide la Messages API), y aplica rate limit (`rate_limit.py`, placeholder en memoria) antes de tocar el agente. `render.py` es la pieza nueva de lógica real: mira los `tool_result` de ESE turno (nunca uno bloqueado por un hook ni con `isError`) y clasifica la respuesta en `pokemon`/`compare`/`matchups`/`texto` para que el front sepa qué componente renderizar — sin esto, el front solo tenía la prosa de Claude y no podía cumplir reglas/04-frontend.md.
+- `frontend/` — Next.js 16 (App Router, TypeScript), sin Tailwind (CSS variables + `next-themes`). Tema Día (Hada/Luz: pastel cálido, dorado) y Noche (Fantasma/Siniestro: violeta profundo, fosforescente), toggle manual + default por `prefers-color-scheme`. Componentes por tipo de dato: `PokemonCard`, `CompareTable`, `TypeMatchupBadges` (badges agrupados por efectividad: Débil/Resiste/Inmune, Fuerte/Poco efectivo/Sin efecto), y `OakText` (markdown vía `react-markdown` + `remark-gfm` — las respuestas reales de Oak vienen con tablas/negrita, sin esto se verían los asteriscos crudos).
+
+**Auth (sigue igual que Fase 4, a propósito):** `mcp_client.py` no se tocó — local sigue resolviendo con el perfil de `databricks auth login`. Producción en Vercel todavía no tiene esto resuelto (ver "Qué falta").
+
+**Validado en vivo, los 2 temas, datos reales (no mockeados):** los 3 formatos de reglas/04-frontend.md corriendo contra el backend real -- ficha de pokemon (Charizard), comparación (Charizard vs. Blastoise, con winner bold por stat) y type matchups (tipo fuego, badges agrupados). El diseño había arrancado con datos mockeados para iterar rápido sobre el tema visual; se reemplazaron por las llamadas reales antes de cerrar la fase.
+
 ## Qué falta
-- **Fase 5** — Frontend en Vercel, consumiendo el agente (nunca pegándole directo a Databricks desde el browser), formato de salida según tipo de dato (tarjeta/tabla/badges/texto).
-- **Fase 6** (opcional, solo si da el tiempo) — Multi-agente: orchestrator + Pokemon Researcher / Battle Analyst / Data Librarian.
+
+- **Service principal M2M + deploy real a Vercel.** `mcp_client.py` funciona hoy con el perfil OAuth interactivo de `databricks auth login`, que no existe en un entorno serverless headless. Hace falta: un service principal de Databricks con OAuth M2M (Terraform, todavía no escrito), setear `DATABRICKS_CLIENT_ID`/`DATABRICKS_CLIENT_SECRET` como env vars de Vercel (`Config` de databricks-sdk los detecta solo, sin tocar código), y recién ahí el deploy de `backend/` y `frontend/` como dos proyectos Vercel separados (ver comentario en `pyproject.toml`/`vercel.json` para el porqué de esa separación).
 - **`tests/`** — casos reproducibles mapeados a los dominios del examen CCA-F (`tool_choice/`, `tool_errors/`, `hooks/`, `structured_output/`, `permissions/`, `subagents/`, `claude_code/`), todavía no se creó nada de esta carpeta.
+- **Fase 6 (opcional, solo si da el tiempo)** — Multi-agente: orchestrator + Pokemon Researcher / Battle Analyst / Data Librarian.
+- **Bug de mojibake sin arreglar** — el texto de `lore` que devuelve `get_pokemon_stats` tiene caracteres acentuados corrompidos (`Pok�mon` en vez de `Pokémon`), visible también en las respuestas reales del front. Sigue sin diagnosticarse el punto exacto del pipeline Bronze→Silver→Gold donde se rompe el encoding.
+- **Docs HTML para el video** — falta armar la documentación/presentación en HTML pensada para grabar el video de demo del proyecto.
 
 ## Recursos vivos en Azure ahora mismo
 
@@ -54,4 +68,4 @@ Todo esto sigue consumiendo el crédito del workspace pago mientras exista:
 
 ## Próximo paso concreto para arrancar mañana
 
-Arrancar Fase 5 (frontend en Vercel) leyendo `reglas/04-frontend.md`. Antes de eso, si el crédito del workspace aprieta, considerar `databricks apps stop pokedex-mcp-server` (queda todo en Terraform/workspace, se vuelve a levantar con `databricks apps start` cuando haga falta).
+Sesión nueva, contexto limpio: arrancar por el service principal M2M (Terraform) + deploy real a Vercel -- es lo único que bloquea que el proyecto deje de depender de una sesión local. Después, `tests/`. Multi-agente (Fase 6) queda opcional al final si da el tiempo. Antes de eso, si el crédito del workspace aprieta, considerar `databricks apps stop pokedex-mcp-server` (queda todo en Terraform/workspace, se vuelve a levantar con `databricks apps start` cuando haga falta).
