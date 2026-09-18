@@ -1,0 +1,100 @@
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.5rem 1rem 3rem;
+}
+
+.header {
+  width: 100%;
+  max-width: 720px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  background: linear-gradient(90deg, var(--accent-secondary), var(--accent-primary));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.subtitle {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-top: 0.15rem;
+}
+
+.chat {
+  width: 100%;
+  max-width: 720px;
+  flex: 1;
+}
+
+.empty {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  padding: 1rem 0;
+}
+
+.loading {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-style: italic;
+  margin-bottom: 1rem;
+}
+
+.error {
+  color: var(--eff-none);
+  background: var(--eff-none-bg);
+  padding: 0.6rem 0.9rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.composer {
+  width: 100%;
+  max-width: 720px;
+  display: flex;
+  gap: 0.6rem;
+  position: sticky;
+  bottom: 1rem;
+  margin-top: 1rem;
+}
+
+.input {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.input:focus {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
+}
+
+.send {
+  padding: 0.75rem 1.4rem;
+  border-radius: 999px;
+  border: none;
+  background: var(--accent-primary);
+  color: var(--bg);
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

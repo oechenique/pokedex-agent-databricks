@@ -1,0 +1,106 @@
+/* Pokedex -- Edicion Dia/Noche
+   Dia (claro, default): inspirado tipo Hada/Luz -- pastel calido, blancos, dorado.
+   Noche (dark): inspirado tipo Fantasma/Siniestro -- violeta profundo, fosforescente.
+   next-themes agrega/saca la clase .dark en <html>; el resto de la app solo
+   lee las custom properties, nunca colores hardcodeados en los componentes. */
+
+:root {
+  --bg: #fff7f0;
+  --bg-elevated: #ffffff;
+  --bg-subtle: #ffeee0;
+  --text: #3b2a2e;
+  --text-muted: #8a7370;
+  --border: #f0d9c8;
+  --accent-primary: #a8790f;
+  --accent-primary-strong: #7a5a0c;
+  --accent-secondary: #c15c88;
+  --accent-secondary-bg: #f6d3e4;
+  --shadow-color: rgba(190, 140, 60, 0.18);
+
+  --user-bubble-bg: #ffe9d6;
+  --user-bubble-text: #4a352a;
+  --oak-bubble-bg: #ffffff;
+  --oak-bubble-border: var(--border);
+
+  --stat-track: #f3e2cf;
+  --stat-fill: linear-gradient(90deg, #f0a6c4, #c9971e);
+
+  --eff-super: #2f8f5b;
+  --eff-super-bg: #d9f3e4;
+  --eff-weak: #a56a1c;
+  --eff-weak-bg: #f7e6cf;
+  --eff-none: #8a3b4a;
+  --eff-none-bg: #f5dde1;
+
+  color-scheme: light;
+}
+
+:root.dark {
+  --bg: #0f0a1a;
+  --bg-elevated: #1c1330;
+  --bg-subtle: #241a3d;
+  --text: #ede7f6;
+  --text-muted: #b0a3d0;
+  --border: #3a2b57;
+  --accent-primary: #b583ff;
+  --accent-primary-strong: #d9b8ff;
+  --accent-secondary: #6cffb8;
+  --accent-secondary-bg: #1c3a2e;
+  --shadow-color: rgba(150, 90, 255, 0.35);
+
+  --user-bubble-bg: #2a1f47;
+  --user-bubble-text: #ede7f6;
+  --oak-bubble-bg: #1c1330;
+  --oak-bubble-border: var(--border);
+
+  --stat-track: #2a1f47;
+  --stat-fill: linear-gradient(90deg, #b583ff, #6cffb8);
+
+  --eff-super: #7cffb2;
+  --eff-super-bg: #163827;
+  --eff-weak: #ffcf7c;
+  --eff-weak-bg: #3a2c14;
+  --eff-none: #ff8fa3;
+  --eff-none-bg: #3a1620;
+
+  color-scheme: dark;
+}
+
+html {
+  height: 100%;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+body {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  color: var(--text);
+  background: var(--bg);
+  font-family: var(--font-body), Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display), var(--font-body), sans-serif;
+}

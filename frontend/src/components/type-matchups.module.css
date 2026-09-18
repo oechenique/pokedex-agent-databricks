@@ -1,0 +1,77 @@
+.wrapper {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 1.25rem;
+  max-width: 480px;
+  box-shadow: 0 8px 24px var(--shadow-color);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.heading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.05rem;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.columnLabel {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.section {
+  border-radius: 12px;
+  padding: 0.5rem 0.65rem;
+}
+
+.sectionTitle {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin-bottom: 0.35rem;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.multiplier {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.super {
+  background: var(--eff-super-bg);
+  color: var(--eff-super);
+}
+
+.weak {
+  background: var(--eff-weak-bg);
+  color: var(--eff-weak);
+}
+
+.none {
+  background: var(--eff-none-bg);
+  color: var(--eff-none);
+}

@@ -1,0 +1,8 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "backend/app.py": {
+      "excludeFiles": "{frontend/**,terraform/**,mcp_server/**,ingestion/**,reglas/**,.git/**,**/__pycache__/**,**/*.pyc}"
+    }
+  }
+}

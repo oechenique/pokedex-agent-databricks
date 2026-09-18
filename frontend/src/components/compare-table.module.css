@@ -1,0 +1,71 @@
+.wrapper {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 1.25rem;
+  max-width: 480px;
+  box-shadow: 0 8px 24px var(--shadow-color);
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.table th,
+.table td {
+  padding: 0.4rem 0.6rem;
+}
+
+.table thead th {
+  vertical-align: top;
+  padding-bottom: 0.75rem;
+}
+
+.name {
+  text-transform: capitalize;
+  font-weight: 700;
+  margin-top: 0.25rem;
+}
+
+.types {
+  display: flex;
+  justify-content: center;
+  gap: 0.3rem;
+  margin-top: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.table tbody th {
+  text-align: left;
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 0.8rem;
+}
+
+.table tbody tr {
+  border-top: 1px solid var(--border);
+}
+
+.winner {
+  font-weight: 800;
+  color: var(--accent-primary-strong);
+}
+
+.totalRow {
+  border-top: 2px solid var(--border) !important;
+}
+
+.totalRow th,
+.totalRow td {
+  font-weight: 700;
+  padding-top: 0.6rem;
+}
+
+.missing {
+  color: var(--eff-none);
+  font-size: 0.9rem;
+}

@@ -1,0 +1,16 @@
+[project]
+name = "pokedex-agent-backend"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.117.1",
+    "anthropic>=0.120.2",
+    "mcp>=2.1.1",
+    "databricks-sdk>=0.139.0",
+]
+
+# Vercel Python runtime (reglas/07-estado-actual.md, Fase 5): Root Directory
+# del proyecto queda en la raíz del repo (no en backend/) para que agent/
+# viaje en el mismo bundle sin duplicar código -- ver backend/app.py.
+[tool.vercel]
+entrypoint = "backend.app:app"

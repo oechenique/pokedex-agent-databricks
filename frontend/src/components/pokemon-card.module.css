@@ -1,0 +1,95 @@
+.card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 1.25rem;
+  max-width: 420px;
+  box-shadow: 0 8px 24px var(--shadow-color);
+}
+
+.header {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.artwork {
+  flex-shrink: 0;
+  filter: drop-shadow(0 4px 10px var(--shadow-color));
+}
+
+.identity {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.name {
+  text-transform: capitalize;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.dex {
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.meta {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  text-transform: capitalize;
+}
+
+.types {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.stats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.statRow {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.8rem;
+}
+
+.statRow dt {
+  color: var(--text-muted);
+}
+
+.statRow dd {
+  display: grid;
+  grid-template-columns: 1fr 32px;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.statValue {
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.total {
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.lore {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  border-top: 1px dashed var(--border);
+  padding-top: 0.75rem;
+}
