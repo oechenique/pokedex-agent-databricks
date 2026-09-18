@@ -25,13 +25,15 @@ Agente (Claude Agent SDK) + Frontend (Vercel)
 ```
 
 ## Fases de trabajo (orden real, no el de un README)
-1. Terraform + Bronze (prioridad: se acaban los días del workspace pago)
-2. Silver + Gold + Data Quality gate
-3. MCP server (tools + schemas) sobre Databricks Apps
-4. Agente single-agent + hooks + structured output
-5. Frontend en Vercel
-6. (Recién ahí, si da el tiempo) multi-agent: orchestrator + subagents
-7. `tests/` — casos reproducibles mapeados a los dominios del examen
+1. ✅ Terraform + Bronze (prioridad: se acaban los días del workspace pago)
+2. ✅ Silver + Gold + Data Quality gate
+3. ✅ MCP server (tools + schemas) sobre Databricks Apps
+4. ⬜ Agente single-agent + hooks + structured output
+5. ⬜ Frontend en Vercel
+6. ⬜ (Recién ahí, si da el tiempo) multi-agent: orchestrator + subagents
+7. ⬜ `tests/` — casos reproducibles mapeados a los dominios del examen
+
+Estado detallado, hallazgos y recursos vivos en Azure: `07-estado-actual.md`.
 
 ## Qué NO hacemos (y por qué, para que no se reintroduzca en otra sesión)
 - ❌ Vector Search / embeddings para stats o matchups — son datos exactos y estructurados, no texto ambiguo. Es la trampa "vector store para un dato que debe estar siempre disponible", catalogada en la guía de estudio del CCA-F.
