@@ -40,6 +40,12 @@ variable "sql_warehouse_id" {
   default     = "e783d583f5b7768d"
 }
 
+variable "anthropic_api_key" {
+  description = "API key de Anthropic para el agente de oak_app (Profesor Oak corriendo como Databricks App). Sensitive -- se pasa por terraform.tfvars (gitignored) o TF_VAR_anthropic_api_key, nunca hardcodeada ni commiteada (reglas/05-guardrails-seguridad.md). Termina en un databricks_secret, nunca en texto plano en app.yaml."
+  type        = string
+  sensitive   = true
+}
+
 variable "tags" {
   description = "Tags comunes para todos los recursos."
   type        = map(string)

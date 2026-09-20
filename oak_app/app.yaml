@@ -8,3 +8,7 @@ env:
     value: "https://pokedex-mcp-server-7405616363788532.12.azure.databricksapps.com"
   - name: STREAMLIT_GATHER_USAGE_STATS
     value: "false"
+  # Inyectado por el resource "anthropic_api_key" del databricks_app
+  # (terraform/oak_app.tf) -- nunca texto plano acá.
+  - name: ANTHROPIC_API_KEY
+    valueFrom: "anthropic_api_key"
