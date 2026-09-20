@@ -109,10 +109,11 @@ En vez de seguir esperando la propagación del bloqueo de arriba, el frontend de
 
 **Probado en vivo contra la URL real (`https://pokedex-oak-7405616363788532.12.azure.databricksapps.com`), los 3 casos, datos reales:** ficha de Pikachu, comparación Charizard vs. Blastoise (winner bold por stat correcto), matchups de tipo fuego (badges agrupados correctos).
 
+**Tema Día/Noche agregado (2026-09-20), misma paleta conceptual que `frontend/src/app/globals.css`** (Día: Hada/Luz, pastel cálido + dorado. Noche: Fantasma/Siniestro, violeta profundo + fosforescente) -- CSS inyectado vía `st.markdown`, toggle en la sidebar, no pixel-perfect (Streamlit no tiene el mismo árbol de componentes que Next.js). Un detalle real: `.stApp` no alcanza el contenedor del `chat_input` (`[data-testid="stBottom"]` tiene su propio fondo oscuro hardcodeado de Streamlit) -- hubo que apuntarlo explícito después de inspeccionar el DOM real con `javascript_tool` en vez de adivinar el selector. Probado en vivo, los dos modos, contra la URL real.
+
 ## Qué falta
 
 - Deploy de producción a Vercel: sigue bloqueado (ver sección de arriba), pero ya no es el plan activo -- no requiere acción a menos que se retome ese camino.
-- Tema día/noche en `oak_app` -- quedó afuera a propósito, Streamlit no lo prioriza igual que Next.js; ver si vale la pena más adelante.
 - **`tests/`** — casos reproducibles mapeados a los dominios del examen CCA-F (`tool_choice/`, `tool_errors/`, `hooks/`, `structured_output/`, `permissions/`, `subagents/`, `claude_code/`), todavía no se creó nada de esta carpeta.
 - **Fase 6 (opcional, solo si da el tiempo)** — Multi-agente: orchestrator + Pokemon Researcher / Battle Analyst / Data Librarian.
 - **Docs HTML para el video** — falta armar la documentación/presentación en HTML pensada para grabar el video de demo del proyecto.
