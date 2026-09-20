@@ -32,6 +32,8 @@ Cada carpeta = una pregunta tipo examen convertida en código que corre de verda
 | **Skills** | Procedimiento compartido: "cómo correr el pipeline Bronze→Gold local antes de un PR" | Tus skills personales reusables |
 | **Hooks** | `PreToolUse`/`PostToolUse` de este proyecto (ver `03-agente-mcp.md`) — siempre en el repo, es enforcement del equipo | — |
 
+> Nota: para el repo real usamos `AGENTS.md` (soporte nuevo, cross-tool); el `AGENTS.md` raíz reemplaza la instrucción manual de leer reglas/ en cada prompt. Para el examen CCA-F la terminología sigue siendo CLAUDE.md, no confundir uno con otro.
+
 Regla de oro: si es específico de este proyecto y el equipo lo tiene que ver → repo. Si es tuyo y aplica a cualquier repo → `~/.claude/`, nunca se commitea.
 
 ## Cómo lo vamos a construir con Claude Code (para no quemar tokens de más)
