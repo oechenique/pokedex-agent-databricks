@@ -334,7 +334,7 @@ def _render_turn(render: dict) -> None:
 
 
 st.title("🔴 Profesor Oak")
-st.caption("Pokedex agente sobre gold.* -- Databricks App, sin Vercel de por medio (reglas/07-estado-actual.md).")
+st.caption("Agente Pokédex sobre datos reales de Gold -- Databricks App, sin Vercel de por medio.")
 
 if "history" not in st.session_state:
     st.session_state.history = []  # agent.messages serializado, fuente de verdad para el próximo turno
