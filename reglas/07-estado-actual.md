@@ -89,11 +89,22 @@ Al levantar los dos dev servers locales para retomar la demo de Fase 4 (después
 
 **Hipótesis final (sin código nuestro que la resuelva):** propagación o caché inconsistente en la capa de *enforcement* de Databricks Apps (la que efectivamente valida el permiso al servir la app) -- distinta de la capa de control/API que ya confirma el ACL correcto al toque. El `200` aislado sugiere que a veces sí propaga; la mayoría de los intentos, no. No se sabe cuánto puede tardar en asentarse (¿minutos? ¿horas?) ni si es un límite/bug de una feature relativamente nueva (M2M service principal invocando una Databricks App programáticamente).
 
-**Siguiente paso concreto (próxima sesión, no ahora):** reintentar el script de repro aislado (`DATABRICKS_CONFIG_FILE` a una ruta inexistente + POST crudo a `${MCP_SERVER_URL}/mcp`) después de una espera larga sin actividad (horas, no minutos) antes de seguir generando tráfico contra el endpoint. Si sigue en 401 después de eso, es caso para soporte de Databricks -- ya se agotó todo lo accionable de Terraform/env vars/código de este repo.
+**Siguiente paso concreto (próxima sesión, no ahora):** reintentar el script de repro aislado (`DATABRICKS_CONFIG_FILE` a una ruta inexistente + POST crudo a `${MCP_SERVER_URL}/mcp`) después de una espera larga sin actividad (horas, no minutos) antes de seguir generando tráfico contra el endpoint. Si sigue en 401 después de eso, es caso para soporte de Databricks -- ya se agotó todo lo accionable de Terraform/env vars/código de este repo. **Este bloqueo ya no es urgente** -- se abandonó Vercel como plan de deploy, ver sección de abajo.
+
+## Pivot -- segunda Databricks App (Streamlit) reemplaza el deploy a Vercel (2026-09-20)
+
+En vez de seguir esperando la propagación del bloqueo de arriba, el frontend de producción se resuelve como una **segunda Databricks App** (`pokedex-oak`, Streamlit) en lugar de Vercel/Next.js -- mismo patrón sin Dockerfile que `pokedex-mcp-server` (`oak_app/app.py` + `requirements.txt` + `app.yaml`, Terraform en `terraform/oak_app.tf`). Reusa `agent/` (agent.py, hooks.py, tool_choice.py, system_prompt.py, mcp_client.py) tal cual, sin tocar nada.
+
+**Por qué esto esquiva el problema:** dentro de una Databricks App, `WorkspaceClient()` sin credenciales explícitas usa el service principal propio de ESA app, inyectado automáticamente por la plataforma -- patrón de auth app-to-app oficial de Databricks (confirmado contra la doc antes de escribir código: https://docs.databricks.com/gcp/en/dev-tools/databricks-apps/connect-local), completamente distinto al M2M externo con client_id/secret propios que se rompía desde Vercel.
+
+**Esqueleto mínimo validado en vivo, ANTES de portar el resto de la UI (como pidió el plan):** `oak_app/app.py` con un solo botón que hace `WorkspaceClient().config.authenticate()` y un POST crudo `initialize` a `pokedex-mcp-server`. Deployado como `databricks_app.oak_frontend` (Terraform, `terraform/oak_app.tf`), con `CAN_USE` sobre `pokedex-mcp-server` agregado al MISMO `databricks_permissions` que ya tenía `backend_m2m` (lección aplicada: un solo resource por `app_name`, nunca uno separado -- ver comentario en `permissions.tf`). Probado en el navegador real: **`Status: 200`, respuesta MCP `initialize` completa con `serverInfo: pokedex-mcp-server`.** El auth app-to-app funciona -- se esquivó el problema de Vercel.
+
+**Service principal M2M (`backend_m2m`) y el deploy a Vercel quedan sin desarmar por ahora** -- no estorban, y si en algún momento se resuelve la propagación del bloqueo de arriba podrían reactivarse, pero no son el plan activo.
 
 ## Qué falta
 
-- **Deploy de producción a Vercel: BLOQUEADO** por el problema de arriba, no por código o config de este repo.
+- **Portar el resto de la UI a `oak_app/app.py`** -- ficha de pokemon (imagen + stats), tabla de comparación, badges de matchups (simplificado a lo que Streamlit renderiza bien, tal como pidió el plan). Tema día/noche queda para después. Integrar el loop real del agente (`agent.Agent`, hooks, tool_choice) en vez del POST crudo del esqueleto.
+- Deploy de producción a Vercel: sigue bloqueado (ver sección de arriba), pero ya no es el plan activo -- no requiere acción a menos que se retome ese camino.
 - **`tests/`** — casos reproducibles mapeados a los dominios del examen CCA-F (`tool_choice/`, `tool_errors/`, `hooks/`, `structured_output/`, `permissions/`, `subagents/`, `claude_code/`), todavía no se creó nada de esta carpeta.
 - **Fase 6 (opcional, solo si da el tiempo)** — Multi-agente: orchestrator + Pokemon Researcher / Battle Analyst / Data Librarian.
 - **Docs HTML para el video** — falta armar la documentación/presentación en HTML pensada para grabar el video de demo del proyecto.
@@ -111,7 +122,8 @@ Todo esto sigue consumiendo el crédito del workspace pago mientras exista:
 | SQL Warehouse | "Serverless Starter Warehouse" (`e783d583f5b7768d`) — preexistente de la cuenta, no gestionado por Terraform | serverless, se auto-suspende solo |
 | Job | `pokedex-pipeline` (`103793069144325`) — bronze×5 → silver_transform → dq_check → gold_aggregate | solo corre on-demand, no consume nada parado |
 | **Databricks App** | `pokedex-mcp-server` — compute `MEDIUM` | **`RUNNING` de forma continua** — a diferencia del warehouse y el job, esto es cómputo prendido todo el tiempo. Si el crédito aprieta, se puede parar con `databricks apps stop pokedex-mcp-server` y volver a levantar cuando se retome Fase 4 (`databricks apps start`), sin perder nada (el código y el estado quedan en Terraform/workspace). |
+| **Databricks App** | `pokedex-oak` — frontend Streamlit (esqueleto validado, 2026-09-20) | `RUNNING` — segunda app siempre prendida, mismo criterio que `pokedex-mcp-server` para pausarla si aprieta el crédito. |
 
 ## Próximo paso concreto para arrancar mañana
 
-Sesión nueva, contexto limpio: arrancar por el service principal M2M (Terraform) + deploy real a Vercel -- es lo único que bloquea que el proyecto deje de depender de una sesión local. Después, `tests/`. Multi-agente (Fase 6) queda opcional al final si da el tiempo. Antes de eso, si el crédito del workspace aprieta, considerar `databricks apps stop pokedex-mcp-server` (queda todo en Terraform/workspace, se vuelve a levantar con `databricks apps start` cuando haga falta).
+Sesión nueva, contexto limpio: portar el resto de la UI a `oak_app/app.py` (ficha/comparación/matchups + loop real del agente) -- el esqueleto de auth ya está validado en vivo, ver "Pivot" arriba. Después, `tests/`. Multi-agente (Fase 6) queda opcional al final si da el tiempo. Antes de eso, si el crédito del workspace aprieta, considerar `databricks apps stop pokedex-mcp-server`/`pokedex-oak` (queda todo en Terraform/workspace, se vuelve a levantar con `databricks apps start` cuando haga falta).

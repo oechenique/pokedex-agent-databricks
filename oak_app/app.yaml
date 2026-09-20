@@ -1,0 +1,10 @@
+# Databricks App config -- sin Dockerfile, Databricks Apps corre esto
+# directo con app.py + requirements.txt (mismo patrón que mcp_server/,
+# reglas/02-infra-terraform.md).
+command: ["streamlit", "run", "app.py"]
+
+env:
+  - name: MCP_SERVER_URL
+    value: "https://pokedex-mcp-server-7405616363788532.12.azure.databricksapps.com"
+  - name: STREAMLIT_GATHER_USAGE_STATS
+    value: "false"
