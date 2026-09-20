@@ -43,3 +43,21 @@ resource "databricks_grants" "backend_m2m_gold_schema" {
     privileges = ["USE_SCHEMA", "SELECT"]
   }
 }
+
+/*
+Los grants de arriba son de datos (Unity Catalog) -- Databricks Apps
+además tiene su propio control de acceso a nivel app, separado, que no
+hereda nada de esos grants. Sin esto, la app devuelve 401 Unauthorized
+al service principal aunque el token M2M sea válido (confirmado en prod,
+2026-09-20). CAN_USE (no CAN_MANAGE) porque backend_m2m solo necesita
+invocar la app, no administrarla -- mismo criterio de mínimo privilegio
+que los grants de catálogo/schema de arriba.
+*/
+resource "databricks_permissions" "backend_m2m_app_use" {
+  app_name = databricks_app.mcp_server.name
+
+  access_control {
+    service_principal_name = databricks_service_principal.backend_m2m.application_id
+    permission_level       = "CAN_USE"
+  }
+}

@@ -19,6 +19,7 @@ trae su propio host cacheado en ~/.databrickscfg, por eso local sigue
 andando con MCP_SERVER_URL como host de `Config` (ver `_auth_headers`).
 """
 
+import os
 from contextlib import AsyncExitStack
 from typing import Any, Optional
 
@@ -65,6 +66,24 @@ class PokedexMCPClient:
 
     @staticmethod
     def _auth_headers() -> dict[str, str]:
+        # DEBUG TEMPORAL (2026-09-20) -- sacar apenas se resuelva el 500 en
+        # prod. config.py no expone DATABRICKS_CLIENT_ID/SECRET como
+        # atributos (el SDK los lee de env por su cuenta, ver docstring de
+        # este archivo), así que se leen directo de os.environ acá solo
+        # para este log. Nunca el valor completo -- largo + primeros/
+        # últimos 4 chars con !r para que un \n o espacio de más se vea
+        # literal en vez de como salto de línea invisible.
+        _cid = os.environ.get("DATABRICKS_CLIENT_ID")
+        _secret = os.environ.get("DATABRICKS_CLIENT_SECRET")
+        if _cid:
+            print(f"DEBUG client_id len={len(_cid)} repr={_cid[:4]!r}...{_cid[-4:]!r}")
+        else:
+            print("DEBUG client_id UNSET")
+        if _secret:
+            print(f"DEBUG secret len={len(_secret)} repr={_secret[:4]!r}...{_secret[-4:]!r}")
+        else:
+            print("DEBUG secret UNSET")
+
         # DATABRICKS_HOST (workspace) solo hace falta para resolver el OIDC
         # del OAuth M2M en prod -- sin perfil, cae acá. Con perfil OAuth
         # local, DATABRICKS_HOST no está seteado y se sigue usando
