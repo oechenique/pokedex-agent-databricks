@@ -54,11 +54,26 @@ resource "databricks_app" "mcp_server" {
   ]
 }
 
+/*
+IMPORTANTE -- databricks_grants es autoritativo por securable completo,
+no aditivo por principal (bug real 2026-09-20: un segundo
+databricks_grants apuntando a este mismo catalog/schema desde
+permissions.tf pisó silenciosamente el grant de acá, dejando al service
+principal de la app sin USE_CATALOG y rompiendo el MCP server en
+producción -- "INSUFFICIENT_PERMISSIONS" real en los logs de la app).
+Todo grant sobre este catalog/schema tiene que vivir en ESTE resource,
+un grant{} block por principal, nunca en un databricks_grants separado.
+*/
 resource "databricks_grants" "mcp_server_catalog" {
   catalog = databricks_catalog.this.name
 
   grant {
     principal  = databricks_app.mcp_server.service_principal_client_id
+    privileges = ["USE_CATALOG"]
+  }
+
+  grant {
+    principal  = databricks_service_principal.backend_m2m.application_id
     privileges = ["USE_CATALOG"]
   }
 }
@@ -68,6 +83,11 @@ resource "databricks_grants" "mcp_server_gold_schema" {
 
   grant {
     principal  = databricks_app.mcp_server.service_principal_client_id
+    privileges = ["USE_SCHEMA", "SELECT"]
+  }
+
+  grant {
+    principal  = databricks_service_principal.backend_m2m.application_id
     privileges = ["USE_SCHEMA", "SELECT"]
   }
 }

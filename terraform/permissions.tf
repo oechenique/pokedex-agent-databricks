@@ -8,8 +8,14 @@ no sirve en un entorno serverless headless como Vercel -- hace falta un
 service principal propio con OAuth client credentials (M2M).
 
 Permisos: exactamente los mismos que ya tiene el service principal de la
-Databricks App (ver apps.tf) -- USE_CATALOG en el catálogo y USE_SCHEMA +
-SELECT en gold nada más. Nunca acceso a bronze/silver.
+Databricks App -- USE_CATALOG en el catálogo y USE_SCHEMA + SELECT en
+gold nada más. Nunca acceso a bronze/silver. Esos grants de Unity
+Catalog se declaran en apps.tf (databricks_grants.mcp_server_catalog /
+mcp_server_gold_schema), NO acá -- databricks_grants es autoritativo por
+securable completo, no aditivo por principal, así que un segundo
+databricks_grants apuntando al mismo catalog/schema pisaría el del otro
+principal (bug real que pasó en esta sesión, ver el comentario en
+apps.tf). Todo grant sobre pokedex/pokedex.gold vive en un único lugar.
 
 El client_secret nunca se escribe a un archivo del repo: el resource
 databricks_service_principal_secret lo expone como atributo sensible, y
@@ -24,24 +30,6 @@ resource "databricks_service_principal" "backend_m2m" {
 
 resource "databricks_service_principal_secret" "backend_m2m" {
   service_principal_id = databricks_service_principal.backend_m2m.id
-}
-
-resource "databricks_grants" "backend_m2m_catalog" {
-  catalog = databricks_catalog.this.name
-
-  grant {
-    principal  = databricks_service_principal.backend_m2m.application_id
-    privileges = ["USE_CATALOG"]
-  }
-}
-
-resource "databricks_grants" "backend_m2m_gold_schema" {
-  schema = "${databricks_catalog.this.name}.${databricks_schema.gold.name}"
-
-  grant {
-    principal  = databricks_service_principal.backend_m2m.application_id
-    privileges = ["USE_SCHEMA", "SELECT"]
-  }
 }
 
 /*
