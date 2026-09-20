@@ -1,6 +1,6 @@
 # 07 — Estado actual del proyecto
 
-_Última actualización: Fase 5 cerrada (frontend Día/Noche + backend FastAPI real, validado en vivo con datos reales), 2026-09-18._
+_Última actualización: Fase 6 cerrada (multi-agente, coordinador + 3 subagentes, validado en vivo contra pokedex-oak), 2026-09-20._
 
 ## Qué está cerrado
 
@@ -111,11 +111,22 @@ En vez de seguir esperando la propagación del bloqueo de arriba, el frontend de
 
 **Tema Día/Noche agregado (2026-09-20), misma paleta conceptual que `frontend/src/app/globals.css`** (Día: Hada/Luz, pastel cálido + dorado. Noche: Fantasma/Siniestro, violeta profundo + fosforescente) -- CSS inyectado vía `st.markdown`, toggle en la sidebar, no pixel-perfect (Streamlit no tiene el mismo árbol de componentes que Next.js). Un detalle real: `.stApp` no alcanza el contenedor del `chat_input` (`[data-testid="stBottom"]` tiene su propio fondo oscuro hardcodeado de Streamlit) -- hubo que apuntarlo explícito después de inspeccionar el DOM real con `javascript_tool` en vez de adivinar el selector. Probado en vivo, los dos modos, contra la URL real.
 
+## Fase 6 — Multi-agente (cerrada, 2026-09-20)
+
+**Coordinador ("Profesor Oak") + 3 subagentes aislados** (`agent/subagents.py`, `agent/orchestrator.py`), según `reglas/03-agente-mcp.md`: Pokemon Researcher (`get_pokemon_stats`, `search_pokemon`), Battle Analyst (`compare_pokemon`, `get_type_matchups`), Data Librarian (`get_pokemon_stats`, único origen de lore hoy -- `get_card_info`/TCG no existe todavía). Cada subagente tiene messages, system prompt y subset de tools propio -- aislamiento real, no de nombre -- y pasa por los mismos hooks reales (`PreToolUse`/`PostToolUse`) que el agente single.
+
+**Contexto entre subagentes explícito por el coordinador, nunca subagente-a-subagente** (Dominio 1 del examen, el que más se pregunta mal): el orchestrator arma un bloque de texto con los resultados ya obtenidos y se lo agrega al objetivo del siguiente subagente antes de correrlo. Validado en vivo: el objetivo real de `battle_analyst` para "Charizard" incluyó literal *"apoyándose en el perfil de stats y tipos que entregó el investigador"*.
+
+**Delegación goal-oriented:** una llamada del coordinador forzada con `tool_choice` sobre una tool local `delegate_plan` decide a quién delegar con objetivo + criterio de calidad -- nunca una receta de qué tool llamar con qué parámetros.
+
+**Integrado en `oak_app` como modo opcional** (no reemplaza el agente single): toggle "🧩 Multi-agente" en la sidebar + heurística de auto-detección (`should_use_multi_agent`, dispara con frases como "análisis completo"). Expander "Cómo trabajó el equipo" en la UI muestra objetivo/criterio de calidad/tools usadas/resultado crudo de cada subagente -- el aislamiento se ve funcionando, no solo se declara en el prompt.
+
+**Bug real encontrado probando con datos reales:** Pokemon Researcher se iba de scope explorando Mega Evoluciones/Gigamax no pedidas (el objetivo del coordinador las nombraba), y el código se quedaba con el *último* `tool_result` para armar el render -- terminó mostrando `charmeleon` en vez de `charizard`. Fix: regla explícita de scope en el subagente + quedarse con el *primer* resultado capturado (el que responde directo al objetivo), no el último.
+
 ## Qué falta
 
 - Deploy de producción a Vercel: sigue bloqueado (ver sección de arriba), pero ya no es el plan activo -- no requiere acción a menos que se retome ese camino.
 - **`tests/`** — casos reproducibles mapeados a los dominios del examen CCA-F (`tool_choice/`, `tool_errors/`, `hooks/`, `structured_output/`, `permissions/`, `subagents/`, `claude_code/`), todavía no se creó nada de esta carpeta.
-- **Fase 6 (opcional, solo si da el tiempo)** — Multi-agente: orchestrator + Pokemon Researcher / Battle Analyst / Data Librarian.
 - **Docs HTML para el video** — falta armar la documentación/presentación en HTML pensada para grabar el video de demo del proyecto.
 
 ## Recursos vivos en Azure ahora mismo
@@ -135,4 +146,4 @@ Todo esto sigue consumiendo el crédito del workspace pago mientras exista:
 
 ## Próximo paso concreto para arrancar mañana
 
-Sesión nueva, contexto limpio: portar el resto de la UI a `oak_app/app.py` (ficha/comparación/matchups + loop real del agente) -- el esqueleto de auth ya está validado en vivo, ver "Pivot" arriba. Después, `tests/`. Multi-agente (Fase 6) queda opcional al final si da el tiempo. Antes de eso, si el crédito del workspace aprieta, considerar `databricks apps stop pokedex-mcp-server`/`pokedex-oak` (queda todo en Terraform/workspace, se vuelve a levantar con `databricks apps start` cuando haga falta).
+Sesión nueva, contexto limpio: arrancar por `tests/` -- casos reproducibles mapeados a los dominios del examen CCA-F (`tool_choice/`, `tool_errors/`, `hooks/`, `structured_output/`, `permissions/`, `subagents/`, `claude_code/`), es lo único de las fases planeadas que queda pendiente. Si da el tiempo después, la docs HTML para el video de demo. Antes de eso, si el crédito del workspace aprieta, considerar `databricks apps stop pokedex-mcp-server`/`pokedex-oak` (queda todo en Terraform/workspace, se vuelve a levantar con `databricks apps start` cuando haga falta).

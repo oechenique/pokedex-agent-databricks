@@ -28,9 +28,9 @@ Agente (Claude Agent SDK) + Frontend (Vercel)
 1. ✅ Terraform + Bronze (prioridad: se acaban los días del workspace pago)
 2. ✅ Silver + Gold + Data Quality gate
 3. ✅ MCP server (tools + schemas) sobre Databricks Apps
-4. ⬜ Agente single-agent + hooks + structured output
-5. ⬜ Frontend en Vercel
-6. ⬜ (Recién ahí, si da el tiempo) multi-agent: orchestrator + subagents
+4. ✅ Agente single-agent + hooks + structured output
+5. ✅ Frontend (pivotado de Vercel a `oak_app/`, Databricks App en Streamlit -- reglas/07)
+6. ✅ Multi-agente: orchestrator + subagents (`agent/orchestrator.py`, `agent/subagents.py`)
 7. ⬜ `tests/` — casos reproducibles mapeados a los dominios del examen
 
 Estado detallado, hallazgos y recursos vivos en Azure: `07-estado-actual.md`.
