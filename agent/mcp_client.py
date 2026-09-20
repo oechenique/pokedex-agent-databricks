@@ -69,6 +69,16 @@ class PokedexMCPClient:
     async def __aenter__(self) -> "PokedexMCPClient":
         self._stack = AsyncExitStack()
         headers = self._auth_headers()
+        # DEBUG TEMPORAL (2026-09-20) -- confirmar 1) nombre exacto de la
+        # key, 2) prefijo "Bearer " presente, 3) no vacío/None -- justo en
+        # el dict que se le pasa a create_mcp_http_client(), antes de que
+        # toque un solo request real.
+        auth_val = headers.get("Authorization")
+        print(f"DEBUG headers keys={list(headers.keys())!r}")
+        if auth_val:
+            print(f"DEBUG Authorization len={len(auth_val)} starts={auth_val[:20]!r}")
+        else:
+            print(f"DEBUG Authorization MISSING -- headers={headers!r}")
         http_client = await self._stack.enter_async_context(
             create_mcp_http_client(headers=headers, timeout=_HTTP_TIMEOUT)
         )
