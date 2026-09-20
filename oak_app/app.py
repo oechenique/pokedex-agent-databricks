@@ -37,6 +37,114 @@ from serialize import serialize_messages  # noqa: E402
 
 st.set_page_config(page_title="Profesor Oak -- Pokedex", page_icon="🔴", layout="centered")
 
+# Tema Día/Noche -- misma paleta conceptual que frontend/src/app/globals.css
+# (Día: Hada/Luz, pastel cálido + dorado. Noche: Fantasma/Siniestro, violeta
+# profundo + fosforescente), no pixel-perfect -- Streamlit tiene su propio
+# árbol de componentes, esto apunta a sus data-testid reales.
+THEMES = {
+    "day": {
+        "bg": "#fff7f0",
+        "bg_elevated": "#ffffff",
+        "bg_subtle": "#ffeee0",
+        "text": "#3b2a2e",
+        "text_muted": "#8a7370",
+        "border": "#f0d9c8",
+        "accent": "#a8790f",
+        "accent_strong": "#7a5a0c",
+        "user_bubble": "#ffe9d6",
+        "oak_bubble": "#ffffff",
+    },
+    "night": {
+        "bg": "#0f0a1a",
+        "bg_elevated": "#1c1330",
+        "bg_subtle": "#241a3d",
+        "text": "#ede7f6",
+        "text_muted": "#b0a3d0",
+        "border": "#3a2b57",
+        "accent": "#b583ff",
+        "accent_strong": "#d9b8ff",
+        "user_bubble": "#2a1f47",
+        "oak_bubble": "#1c1330",
+    },
+}
+
+
+def _inject_theme_css(mode: str) -> None:
+    c = THEMES[mode]
+    st.markdown(
+        f"""
+        <style>
+        .stApp {{
+            background: {c["bg"]} !important;
+            color: {c["text"]} !important;
+        }}
+        [data-testid="stBottom"], [data-testid="stBottom"] > div,
+        [data-testid="stBottomBlockContainer"] {{
+            background: {c["bg"]} !important;
+        }}
+        [data-testid="stSidebar"] {{
+            background: {c["bg_subtle"]} !important;
+            border-right: 1px solid {c["border"]};
+        }}
+        [data-testid="stChatMessage"] {{
+            background: {c["oak_bubble"]} !important;
+            border: 1px solid {c["border"]} !important;
+            border-radius: 14px;
+            padding: 0.5rem 0.75rem;
+        }}
+        [data-testid="stChatMessage"] p, [data-testid="stChatMessage"] span,
+        [data-testid="stChatMessage"] li, .stApp p, .stApp span, .stApp li,
+        .stApp label {{
+            color: {c["text"]} !important;
+        }}
+        .stApp h1, .stApp h2, .stApp h3, .stApp h4 {{
+            color: {c["accent_strong"]} !important;
+        }}
+        [data-testid="stMetricValue"] {{
+            color: {c["accent"]} !important;
+        }}
+        [data-testid="stMetricLabel"] {{
+            color: {c["text_muted"]} !important;
+        }}
+        [data-testid="stCaptionContainer"], .stApp small {{
+            color: {c["text_muted"]} !important;
+        }}
+        [data-testid="stChatInput"] textarea {{
+            background: {c["bg_elevated"]} !important;
+            color: {c["text"]} !important;
+            border-color: {c["border"]} !important;
+        }}
+        [data-testid="stChatInput"] {{
+            background: {c["bg_elevated"]} !important;
+            border-color: {c["border"]} !important;
+        }}
+        code {{
+            background: {c["bg_subtle"]} !important;
+            color: {c["accent_strong"]} !important;
+        }}
+        a {{
+            color: {c["accent"]} !important;
+        }}
+        blockquote {{
+            border-left: 3px solid {c["accent"]};
+            color: {c["text_muted"]} !important;
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+if "theme" not in st.session_state:
+    st.session_state.theme = "day"
+
+with st.sidebar:
+    st.session_state.theme = "night" if st.toggle(
+        "🌙 Modo noche", value=(st.session_state.theme == "night")
+    ) else "day"
+
+_inject_theme_css(st.session_state.theme)
+
 STAT_ROWS = [
     ("hp", "PS"),
     ("attack", "Ataque"),
