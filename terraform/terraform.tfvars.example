@@ -1,9 +1,15 @@
 # Copiar a terraform.tfvars (gitignored) y ajustar si hace falta.
 # No hace falta ninguna credencial de Azure acá -- Terraform usa la
 # sesión de `az login` ya activa (ver terraform/providers.tf). PokeAPI
-# tampoco necesita API key, así que esta fase no requiere ningún secret.
+# tampoco necesita API key.
 
 project_prefix = "pokedex"
 environment    = "demo"
 location       = "westus3"
 catalog_name   = "pokedex"
+
+# Requerido -- termina en un databricks_secret para oak_app (Profesor
+# Oak corriendo como Databricks App), nunca en texto plano
+# (reglas/05-guardrails-seguridad.md). Completar con una key real de
+# Anthropic antes de aplicar permissions.tf/oak_app.tf.
+anthropic_api_key = ""
