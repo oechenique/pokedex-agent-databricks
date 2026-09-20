@@ -6,6 +6,7 @@ dependencies = [
     "fastapi>=0.117.1",
     "anthropic>=0.120.2",
     "mcp>=2.1.1",
+    "httpx2>=2.12.0",
     "databricks-sdk>=0.139.0",
 ]
 

@@ -34,6 +34,13 @@ ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-opus-5")
 # ~/.databrickscfg.
 DATABRICKS_PROFILE = os.environ.get("DATABRICKS_PROFILE") or None
 
+# Host del WORKSPACE (no el de la Databricks App) -- solo hace falta para
+# el OAuth M2M en prod, donde no hay perfil: el endpoint de descubrimiento
+# OIDC se resuelve contra este host, nunca contra MCP_SERVER_URL (ver
+# mcp_client.py._auth_headers). None en local -- el perfil OAuth ya trae
+# su propio host cacheado.
+DATABRICKS_HOST = os.environ.get("DATABRICKS_HOST") or None
+
 MCP_SERVER_URL = os.environ.get("MCP_SERVER_URL")
 MCP_ENDPOINT_PATH = "/mcp"
 
