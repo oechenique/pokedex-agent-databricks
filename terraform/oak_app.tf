@@ -26,8 +26,12 @@ locals {
   oak_app_dir   = "${path.module}/../oak_app"
   oak_app_files = toset(["app.py", "render.py", "serialize.py", "requirements.txt", "app.yaml"])
 
-  agent_dir   = "${path.module}/../agent"
-  agent_files = toset(["agent.py", "hooks.py", "tool_choice.py", "system_prompt.py", "mcp_client.py", "config.py"])
+  agent_dir = "${path.module}/../agent"
+  agent_files = toset([
+    "agent.py", "hooks.py", "tool_choice.py", "system_prompt.py", "mcp_client.py", "config.py",
+    # Fase 6 -- coordinador + subagentes (reglas/03-agente-mcp.md).
+    "orchestrator.py", "subagents.py",
+  ])
 }
 
 resource "databricks_directory" "oak_app" {

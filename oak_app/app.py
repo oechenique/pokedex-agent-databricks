@@ -17,6 +17,14 @@ matchups de tipo -> badges agrupados por efectividad, resto -> texto.
 render.py clasifica el turno real (nunca inventa un formato sin datos
 detrás), serialize.py lo deja en JSON plano -- ambos copiados de
 backend/, ver esos archivos.
+
+Fase 6 -- modo multi-agente opcional (orchestrator.py, subagents.py):
+coordinador + 3 subagentes aislados (Pokemon Researcher, Battle Analyst,
+Data Librarian), contexto entre subagentes pasado explícito por el
+coordinador, nunca subagente-a-subagente. Se activa con el toggle de la
+sidebar o solo si la pregunta pide un análisis multi-faceta
+(orchestrator.should_use_multi_agent) -- el agente single sigue siendo
+el modo default.
 """
 
 import asyncio
@@ -31,6 +39,7 @@ sys.path.insert(0, str(AGENT_DIR))
 
 from agent import Agent  # noqa: E402
 from mcp_client import PokedexMCPClient  # noqa: E402
+from orchestrator import run_multi_agent, should_use_multi_agent  # noqa: E402
 
 from render import build_render  # noqa: E402
 from serialize import serialize_messages  # noqa: E402
@@ -138,10 +147,22 @@ def _inject_theme_css(mode: str) -> None:
 if "theme" not in st.session_state:
     st.session_state.theme = "day"
 
+if "force_multi_agent" not in st.session_state:
+    st.session_state.force_multi_agent = False
+
 with st.sidebar:
     st.session_state.theme = "night" if st.toggle(
         "🌙 Modo noche", value=(st.session_state.theme == "night")
     ) else "day"
+    st.session_state.force_multi_agent = st.toggle(
+        "🧩 Multi-agente (Fase 6)",
+        value=st.session_state.force_multi_agent,
+        help=(
+            "Coordinador + 3 subagentes (Pokemon Researcher, Battle Analyst, "
+            "Data Librarian) en vez del agente single. También se activa "
+            "solo si la pregunta pide un análisis completo."
+        ),
+    )
 
 _inject_theme_css(st.session_state.theme)
 
@@ -161,12 +182,27 @@ EFFECTIVENESS_GROUPS = [
 ]
 
 
-def _run_turn(user_message: str, history: list[dict]) -> tuple[str, list[dict], dict]:
-    async def _call() -> tuple[str, list[dict], dict]:
+def _run_turn(user_message: str, history: list[dict], multi_agent: bool) -> tuple[str, list[dict], dict, list]:
+    async def _call() -> tuple[str, list[dict], dict, list]:
         history_len = len(history)
         async with PokedexMCPClient() as mcp:
             agent = Agent(mcp)
             await agent.load_tools()
+
+            if multi_agent:
+                # Coordinador + subagentes (Fase 6, orchestrator.py) -- el
+                # detalle de quién hizo qué vive en result.trace, para la UI.
+                # session_state.history sigue en el mismo formato que el modo
+                # single (para que un turno normal después pueda seguir la
+                # charla), pero sin el detalle interno de cada subagente --
+                # eso nunca fue parte de la conversación con el usuario.
+                result = await run_multi_agent(user_message, mcp, agent.tools)
+                full_history = list(history) + [
+                    {"role": "user", "content": user_message},
+                    {"role": "assistant", "content": [{"type": "text", "text": result.reply}]},
+                ]
+                return result.reply, full_history, result.render, result.trace
+
             # list(history), no history a secas -- si no, agent.messages
             # queda apuntando al MISMO objeto que session_state.history, y
             # cada .append() de agent.send() lo muta en el momento, dejando
@@ -176,9 +212,25 @@ def _run_turn(user_message: str, history: list[dict]) -> tuple[str, list[dict], 
             reply = await agent.send(user_message)
         full_history = serialize_messages(agent.messages)
         render = build_render(full_history[history_len:])
-        return reply, full_history, render
+        return reply, full_history, render, []
 
     return asyncio.run(_call())
+
+
+def _render_subagent_trace(trace: list) -> None:
+    if not trace:
+        return
+    with st.expander("🧩 Cómo trabajó el equipo (coordinador + subagentes)"):
+        for r in trace:
+            st.markdown(f"**{r.role}**")
+            st.caption(f"Objetivo: {r.goal}")
+            st.caption(f"Criterio de calidad: {r.quality_criteria}")
+            if r.tool_calls:
+                st.caption("Tools usadas: " + ", ".join(f"`{t}`" for t in r.tool_calls))
+            st.markdown(r.summary)
+            if r.structured_data:
+                st.json(r.structured_data, expanded=False)
+            st.divider()
 
 
 def _render_pokemon_card(pokemon: dict | None) -> None:
@@ -287,9 +339,9 @@ st.caption("Pokedex agente sobre gold.* -- Databricks App, sin Vercel de por med
 if "history" not in st.session_state:
     st.session_state.history = []  # agent.messages serializado, fuente de verdad para el próximo turno
 if "turns" not in st.session_state:
-    st.session_state.turns = []  # [(role, texto_o_None, render_dict_o_None)] para pintar la conversación
+    st.session_state.turns = []  # [(role, texto_o_None, render_dict_o_None, trace)] para pintar la conversación
 
-for role, text, render in st.session_state.turns:
+for role, text, render, trace in st.session_state.turns:
     with st.chat_message(role):
         if text:
             st.markdown(text)
@@ -298,18 +350,26 @@ for role, text, render in st.session_state.turns:
                 _render_turn(render)
             except Exception as e:
                 st.exception(e)
+        _render_subagent_trace(trace)
 
 user_message = st.chat_input("Preguntale algo a Profesor Oak (ficha, comparación, matchups de tipo)...")
 
 if user_message:
-    st.session_state.turns.append(("user", user_message, None))
+    st.session_state.turns.append(("user", user_message, None, []))
     with st.chat_message("user"):
         st.markdown(user_message)
 
+    multi_agent = st.session_state.force_multi_agent or should_use_multi_agent(user_message)
+
     with st.chat_message("assistant"):
-        with st.spinner("Profesor Oak está revisando la Pokedex..."):
+        spinner_text = (
+            "El equipo de Profesor Oak está trabajando (coordinador + subagentes)..."
+            if multi_agent
+            else "Profesor Oak está revisando la Pokedex..."
+        )
+        with st.spinner(spinner_text):
             try:
-                reply, full_history, render = _run_turn(user_message, st.session_state.history)
+                reply, full_history, render, trace = _run_turn(user_message, st.session_state.history, multi_agent)
             except Exception as e:
                 st.error(f"Error hablando con pokedex-mcp-server: {e!r}")
             else:
@@ -319,4 +379,5 @@ if user_message:
                     _render_turn(render)
                 except Exception as e:
                     st.exception(e)
-                st.session_state.turns.append(("assistant", reply, render))
+                _render_subagent_trace(trace)
+                st.session_state.turns.append(("assistant", reply, render, trace))
