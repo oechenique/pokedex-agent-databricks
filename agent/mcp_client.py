@@ -42,6 +42,25 @@ import config
 _HTTP_TIMEOUT = httpx2.Timeout(15.0, connect=5.0)
 
 
+async def _log_error_response(response: httpx2.Response) -> None:
+    # DEBUG TEMPORAL (2026-09-20) -- sacar apenas se resuelva el 500 en prod.
+    # mcp.client.streamable_http descarta el body real de cualquier
+    # respuesta >=400 que no sea un JSON-RPC error válido (ver su
+    # _handle_request) y la reemplaza por un ErrorData genérico -- por eso
+    # un try/except alrededor de session.initialize() no alcanza, la
+    # excepción que llega a este código ya nació sin el body real. Este
+    # hook de httpx2 intercepta la respuesta cruda ANTES de que la
+    # librería mcp la toque.
+    if response.status_code >= 400:
+        await response.aread()
+        print(
+            f"DEBUG mcp http error status={response.status_code} "
+            f"url={response.request.url} "
+            f"headers={dict(response.headers)!r} "
+            f"body={response.text[:2000]!r}"
+        )
+
+
 class PokedexMCPClient:
     def __init__(self) -> None:
         self._stack: Optional[AsyncExitStack] = None
@@ -53,6 +72,7 @@ class PokedexMCPClient:
         http_client = await self._stack.enter_async_context(
             create_mcp_http_client(headers=headers, timeout=_HTTP_TIMEOUT)
         )
+        http_client.event_hooks.setdefault("response", []).append(_log_error_response)
         read, write = await self._stack.enter_async_context(
             streamable_http_client(config.mcp_endpoint_url(), http_client=http_client)
         )
