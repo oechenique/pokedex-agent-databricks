@@ -17,9 +17,12 @@ oficial: https://docs.databricks.com/gcp/en/dev-tools/databricks-apps/connect-lo
 Con perfil OAuth interactivo (uso local) esto no aplica: el perfil ya
 trae su propio host cacheado en ~/.databrickscfg, por eso local sigue
 andando con MCP_SERVER_URL como host de `Config` (ver `_auth_headers`).
+
+Deploy de producción a Vercel BLOQUEADO por un 401 intermitente del lado
+de Databricks Apps (propagación/caché de permisos en la capa de
+enforcement, no en este código) -- ver reglas/07-estado-actual.md.
 """
 
-import os
 from contextlib import AsyncExitStack
 from typing import Any, Optional
 
@@ -42,25 +45,6 @@ import config
 _HTTP_TIMEOUT = httpx2.Timeout(15.0, connect=5.0)
 
 
-async def _log_error_response(response: httpx2.Response) -> None:
-    # DEBUG TEMPORAL (2026-09-20) -- sacar apenas se resuelva el 500 en prod.
-    # mcp.client.streamable_http descarta el body real de cualquier
-    # respuesta >=400 que no sea un JSON-RPC error válido (ver su
-    # _handle_request) y la reemplaza por un ErrorData genérico -- por eso
-    # un try/except alrededor de session.initialize() no alcanza, la
-    # excepción que llega a este código ya nació sin el body real. Este
-    # hook de httpx2 intercepta la respuesta cruda ANTES de que la
-    # librería mcp la toque.
-    if response.status_code >= 400:
-        await response.aread()
-        print(
-            f"DEBUG mcp http error status={response.status_code} "
-            f"url={response.request.url} "
-            f"headers={dict(response.headers)!r} "
-            f"body={response.text[:2000]!r}"
-        )
-
-
 class PokedexMCPClient:
     def __init__(self) -> None:
         self._stack: Optional[AsyncExitStack] = None
@@ -69,20 +53,9 @@ class PokedexMCPClient:
     async def __aenter__(self) -> "PokedexMCPClient":
         self._stack = AsyncExitStack()
         headers = self._auth_headers()
-        # DEBUG TEMPORAL (2026-09-20) -- confirmar 1) nombre exacto de la
-        # key, 2) prefijo "Bearer " presente, 3) no vacío/None -- justo en
-        # el dict que se le pasa a create_mcp_http_client(), antes de que
-        # toque un solo request real.
-        auth_val = headers.get("Authorization")
-        print(f"DEBUG headers keys={list(headers.keys())!r}")
-        if auth_val:
-            print(f"DEBUG Authorization len={len(auth_val)} starts={auth_val[:20]!r}")
-        else:
-            print(f"DEBUG Authorization MISSING -- headers={headers!r}")
         http_client = await self._stack.enter_async_context(
             create_mcp_http_client(headers=headers, timeout=_HTTP_TIMEOUT)
         )
-        http_client.event_hooks.setdefault("response", []).append(_log_error_response)
         read, write = await self._stack.enter_async_context(
             streamable_http_client(config.mcp_endpoint_url(), http_client=http_client)
         )
@@ -96,24 +69,6 @@ class PokedexMCPClient:
 
     @staticmethod
     def _auth_headers() -> dict[str, str]:
-        # DEBUG TEMPORAL (2026-09-20) -- sacar apenas se resuelva el 500 en
-        # prod. config.py no expone DATABRICKS_CLIENT_ID/SECRET como
-        # atributos (el SDK los lee de env por su cuenta, ver docstring de
-        # este archivo), así que se leen directo de os.environ acá solo
-        # para este log. Nunca el valor completo -- largo + primeros/
-        # últimos 4 chars con !r para que un \n o espacio de más se vea
-        # literal en vez de como salto de línea invisible.
-        _cid = os.environ.get("DATABRICKS_CLIENT_ID")
-        _secret = os.environ.get("DATABRICKS_CLIENT_SECRET")
-        if _cid:
-            print(f"DEBUG client_id len={len(_cid)} repr={_cid[:4]!r}...{_cid[-4:]!r}")
-        else:
-            print("DEBUG client_id UNSET")
-        if _secret:
-            print(f"DEBUG secret len={len(_secret)} repr={_secret[:4]!r}...{_secret[-4:]!r}")
-        else:
-            print("DEBUG secret UNSET")
-
         # DATABRICKS_HOST (workspace) solo hace falta para resolver el OIDC
         # del OAuth M2M en prod -- sin perfil, cae acá. Con perfil OAuth
         # local, DATABRICKS_HOST no está seteado y se sigue usando
