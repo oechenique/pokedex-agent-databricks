@@ -70,6 +70,8 @@ Al levantar los dos dev servers locales para retomar la demo de Fase 4 (después
 
 **Estado: bloqueado, no fallido.** La arquitectura y el código están probados correctos -- lo que no funciona es la propagación/enforcement de un permiso del lado de Databricks, algo fuera de este repo. Backend local + Databricks App (`Fase 4`, perfil OAuth interactivo) siguen siendo la demo válida mientras esto no se resuelva.
 
+**Aclaración explícita -- NO es el mismo bug que el de `databricks_grants` de la sección de arriba**, aunque estuvo activo durante toda esta sesión de debugging y podría confundirse: son capas distintas. El de arriba (grants de Unity Catalog) rompía una query SQL *dentro* de una sesión MCP ya autenticada -- síntoma: `is_error: true` con un `RuntimeError` real, HTTP 200 a nivel transporte. Este bloqueo es el *front door* de la Databricks App rechazando la conexión ANTES de que corra una sola línea de `mcp_server/app.py` -- síntoma: `401` con body vacío (`{}`), nunca llega a ejecutarse ninguna tool. Un fix del primero no resuelve ni explica el segundo, y viceversa.
+
 **Síntoma:** `POST /api/chat` en producción devuelve `401` (antes `500`, ver hallazgos de arriba) contra `pokedex-mcp-server`, con body vacío (`content-length: 2`, `{}`) -- típico de "no llegó autorización válida" del lado de Databricks, no un error de nuestro código (`mcp_server/app.py` no tiene ninguna lógica de auth propia, es un `MCPServer` plano).
 
 **Descartado con evidencia, en este orden:**
