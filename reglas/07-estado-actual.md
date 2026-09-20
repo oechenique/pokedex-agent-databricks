@@ -31,7 +31,7 @@ Validado en vivo contra la app real, con Claude en el loop (`python agent/cli.py
 
 Fase 4 cerrada -- ver commit para el detalle de archivos (`agent/`).
 
-**Hallazgo aparte (no bloqueante, no arreglado):** el texto de `lore` que devuelve `get_pokemon_stats` tiene caracteres acentuados corrompidos (`Pok�mon` en vez de `Pokémon`) -- probable mismatch de encoding en algún punto del pipeline Bronze→Silver→Gold. No es de esta fase, pero conviene anotarlo para revisar el encoding de la ingesta de `pokemon-species` (flavor text) en algún momento.
+**Hallazgo aparte -- descartado con evidencia (2026-09-19):** se había anotado que `get_pokemon_stats` devolvía `lore` con acentos corrompidos (`Pok�mon` en vez de `Pokémon`), sospechando un mismatch de encoding en Bronze→Silver→Gold. Diagnóstico: `ingestion/pokeapi_client.py` es encoding-safe (PokeAPI responde `charset=utf-8` explícito; `json.dumps(payload)` en Bronze usa `ensure_ascii=True`, o sea ASCII puro hasta que Spark `from_json` lo desescapa) y no cambió desde Fase 1/2. Se verificó en vivo contra `gold.pokemon_profile` (SQL Warehouse serverless, solo lectura, sin re-correr el job): de las 1351 filas con `lore` no nulo, `RLIKE '�'` y `LIKE '%Ã%'` (las dos firmas típicas de corrupción) dieron **0 filas** ambas; el lore de Charizard en hex confirma UTF-8 correcto (`más`, `débil`, `usará` bien codificados). Conclusión: no hay bug en el pipeline ni en los datos ya persistidos -- el `Pok�mon` visto en Fase 4/5 fue casi seguro un artefacto de codepage de la consola de Windows al correr `agent/cli.py` localmente (mismo patrón que el falso positivo de "Pokèmon" en Fase 3), o quedó pisado por un rerun posterior de `gold_aggregate` (hace `overwrite`). No requiere fix de código ni rerun del job.
 
 ## Fase 5 — Frontend Día/Noche + backend FastAPI real (cerrada)
 
@@ -49,7 +49,6 @@ Fase 4 cerrada -- ver commit para el detalle de archivos (`agent/`).
 - **Service principal M2M + deploy real a Vercel.** `mcp_client.py` funciona hoy con el perfil OAuth interactivo de `databricks auth login`, que no existe en un entorno serverless headless. Hace falta: un service principal de Databricks con OAuth M2M (Terraform, todavía no escrito), setear `DATABRICKS_CLIENT_ID`/`DATABRICKS_CLIENT_SECRET` como env vars de Vercel (`Config` de databricks-sdk los detecta solo, sin tocar código), y recién ahí el deploy de `backend/` y `frontend/` como dos proyectos Vercel separados (ver comentario en `pyproject.toml`/`vercel.json` para el porqué de esa separación).
 - **`tests/`** — casos reproducibles mapeados a los dominios del examen CCA-F (`tool_choice/`, `tool_errors/`, `hooks/`, `structured_output/`, `permissions/`, `subagents/`, `claude_code/`), todavía no se creó nada de esta carpeta.
 - **Fase 6 (opcional, solo si da el tiempo)** — Multi-agente: orchestrator + Pokemon Researcher / Battle Analyst / Data Librarian.
-- **Bug de mojibake sin arreglar** — el texto de `lore` que devuelve `get_pokemon_stats` tiene caracteres acentuados corrompidos (`Pok�mon` en vez de `Pokémon`), visible también en las respuestas reales del front. Sigue sin diagnosticarse el punto exacto del pipeline Bronze→Silver→Gold donde se rompe el encoding.
 - **Docs HTML para el video** — falta armar la documentación/presentación en HTML pensada para grabar el video de demo del proyecto.
 
 ## Recursos vivos en Azure ahora mismo
