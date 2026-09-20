@@ -26,6 +26,15 @@ con `terraform output -raw backend_m2m_client_secret` después del apply.
 resource "databricks_service_principal" "backend_m2m" {
   display_name = "${var.project_prefix}-backend-m2m"
   active       = true
+  # Entitlement de workspace (separado de los grants de Unity Catalog de
+  # abajo) -- sin esto, la SQL Statement Execution API devuelve
+  # PermissionDenied ("disabled for users without the databricks-sql-
+  # access... entitlement") ANTES de siquiera llegar a evaluar los grants,
+  # sin importar el schema. Hace falta para tests/permissions/, que usa
+  # este SP para probar en vivo el límite real de Unity Catalog (gold sí,
+  # bronze/silver no) -- no lo necesitaba para su uso original (llamar al
+  # MCP server, que corre el SQL con SU PROPIO service principal).
+  databricks_sql_access = true
 }
 
 resource "databricks_service_principal_secret" "backend_m2m" {

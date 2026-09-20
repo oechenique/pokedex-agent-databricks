@@ -74,8 +74,9 @@ class SubagentResult:
     goal: str
     quality_criteria: str
     summary: str  # síntesis en prosa del subagente, para el coordinador
-    structured_data: dict = field(default_factory=dict)  # último tool_result JSON real, crudo
+    structured_data: dict = field(default_factory=dict)  # primer tool_result JSON real, crudo
     tool_calls: list[str] = field(default_factory=list)  # nombres de tools usadas, para trazabilidad
+    context_received: Optional[str] = None  # el bloque armado por el coordinador, tal cual se lo pasamos -- para poder testear el paso explícito sin parsear prosa de LLM (tests/subagents/)
 
 
 async def run_subagent(
@@ -175,4 +176,5 @@ async def run_subagent(
         summary=summary,
         structured_data=structured_data,
         tool_calls=tool_calls,
+        context_received=context_from_others,
     )
