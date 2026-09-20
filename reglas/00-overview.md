@@ -31,7 +31,7 @@ Agente (Claude Agent SDK) + Frontend (Vercel)
 4. ✅ Agente single-agent + hooks + structured output
 5. ✅ Frontend (pivotado de Vercel a `oak_app/`, Databricks App en Streamlit -- reglas/07)
 6. ✅ Multi-agente: orchestrator + subagents (`agent/orchestrator.py`, `agent/subagents.py`)
-7. ⬜ `tests/` — casos reproducibles mapeados a los dominios del examen
+7. ✅ `tests/` — casos reproducibles mapeados a los dominios del examen
 
 Estado detallado, hallazgos y recursos vivos en Azure: `07-estado-actual.md`.
 

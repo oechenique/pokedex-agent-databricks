@@ -1,6 +1,6 @@
 # 07 — Estado actual del proyecto
 
-_Última actualización: Fase 6 cerrada (multi-agente, coordinador + 3 subagentes, validado en vivo contra pokedex-oak), 2026-09-20._
+_Última actualización: `tests/` cerrado (7 carpetas, todas contra el sistema real, 18/18 passed), 2026-09-20._
 
 ## Qué está cerrado
 
@@ -123,10 +123,15 @@ En vez de seguir esperando la propagación del bloqueo de arriba, el frontend de
 
 **Bug real encontrado probando con datos reales:** Pokemon Researcher se iba de scope explorando Mega Evoluciones/Gigamax no pedidas (el objetivo del coordinador las nombraba), y el código se quedaba con el *último* `tool_result` para armar el render -- terminó mostrando `charmeleon` en vez de `charizard`. Fix: regla explícita de scope en el subagente + quedarse con el *primer* resultado capturado (el que responde directo al objetivo), no el último.
 
+## `tests/` — cerrado (2026-09-20)
+
+Las 7 carpetas del mapa de `reglas/06-ccaf-mapa-y-convenciones.md`. Todo lo que es código corre contra el sistema real (`pokedex-mcp-server`, el agente vía la API de Claude, el orchestrator real) -- nunca mocks. `claude_code/` es la única sin código (`EJEMPLOS.md`, 3 ejemplos documentados citando archivos reales del repo). Detalle por carpeta en `tests/README.md`. **Suite completa: 18/18 passed, 5m35s.**
+
+Hallazgo real en el camino: `backend_m2m` (el service principal M2M, mismo perfil de permisos que `oak_app`) no tenía el entitlement de workspace `databricks_sql_access` -- sin él, la SQL Statement Execution API rechaza cualquier query de ese SP antes de evaluar el schema, sin importar el catálogo/schema target (no tiene nada que ver con los grants de Unity Catalog). Se habilitó en `terraform/permissions.tf` (update in-place) para poder correr `tests/permissions/` en vivo -- ese SP nunca lo había necesitado porque su uso original era llamar al MCP server, no correr SQL directo.
+
 ## Qué falta
 
 - Deploy de producción a Vercel: sigue bloqueado (ver sección de arriba), pero ya no es el plan activo -- no requiere acción a menos que se retome ese camino.
-- **`tests/`** — casos reproducibles mapeados a los dominios del examen CCA-F (`tool_choice/`, `tool_errors/`, `hooks/`, `structured_output/`, `permissions/`, `subagents/`, `claude_code/`), todavía no se creó nada de esta carpeta.
 - **Docs HTML para el video** — falta armar la documentación/presentación en HTML pensada para grabar el video de demo del proyecto.
 
 ## Recursos vivos en Azure ahora mismo
@@ -146,4 +151,4 @@ Todo esto sigue consumiendo el crédito del workspace pago mientras exista:
 
 ## Próximo paso concreto para arrancar mañana
 
-Sesión nueva, contexto limpio: arrancar por `tests/` -- casos reproducibles mapeados a los dominios del examen CCA-F (`tool_choice/`, `tool_errors/`, `hooks/`, `structured_output/`, `permissions/`, `subagents/`, `claude_code/`), es lo único de las fases planeadas que queda pendiente. Si da el tiempo después, la docs HTML para el video de demo. Antes de eso, si el crédito del workspace aprieta, considerar `databricks apps stop pokedex-mcp-server`/`pokedex-oak` (queda todo en Terraform/workspace, se vuelve a levantar con `databricks apps start` cuando haga falta).
+Todas las fases planeadas están cerradas. Lo único que queda es opcional: la docs HTML para el video de demo. Antes de eso, si el crédito del workspace aprieta, considerar `databricks apps stop pokedex-mcp-server`/`pokedex-oak` (queda todo en Terraform/workspace, se vuelve a levantar con `databricks apps start` cuando haga falta).
