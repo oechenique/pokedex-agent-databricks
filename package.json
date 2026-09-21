@@ -1,0 +1,12 @@
+{
+  "name": "pokedex-web",
+  "private": true,
+  "description": "App hibrida Next.js + FastAPI de Profesor Oak sobre Databricks Apps (reglas/07-estado-actual.md, Migracion Next.js a Databricks App). package.json en la raiz activa el build de Node junto al de Python; ver app.yaml para el comando de arranque.",
+  "scripts": {
+    "build": "npm --prefix frontend install && npm --prefix frontend run build",
+    "start": "concurrently --kill-others --names next,api \"npm --prefix frontend run start -- -p $DATABRICKS_APP_PORT\" \"python -m backend.app\""
+  },
+  "dependencies": {
+    "concurrently": "^9.1.0"
+  }
+}

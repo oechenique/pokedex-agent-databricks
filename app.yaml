@@ -1,0 +1,22 @@
+# Databricks App config -- app híbrida Node.js + Python (reglas/07-estado-
+# actual.md, "Migración Next.js a Databricks App"): `package.json` en esta
+# misma raíz hace que Databricks Apps corra `npm install`/`npm run build`
+# además de `pip install -r requirements.txt` (confirmado contra la doc
+# oficial antes de escribir esto: docs.databricks.com/dev-tools/databricks-
+# apps/deploy -- build híbrido Node+Python, sección de apps npm).
+#
+# `npm start` (ver package.json) usa `concurrently` para levantar Next.js
+# (puerto público, DATABRICKS_APP_PORT) y el backend FastAPI (loopback fijo,
+# 127.0.0.1:8000) en paralelo -- Next.js proxea /api/* al segundo server-side
+# (frontend/next.config.ts). Sin esto, Databricks Apps default a `npm run
+# start` igual si detecta package.json, pero preferimos ser explícitos acá
+# (mismo criterio que mcp_server/app.yaml y oak_app/app.yaml).
+command: ["npm", "start"]
+
+env:
+  - name: MCP_SERVER_URL
+    value: "https://pokedex-mcp-server-7405616363788532.12.azure.databricksapps.com"
+  # Inyectado por el resource "anthropic_api_key" del databricks_app
+  # (terraform/backend_app.tf) -- nunca texto plano acá (reglas/05).
+  - name: ANTHROPIC_API_KEY
+    valueFrom: "anthropic_api_key"

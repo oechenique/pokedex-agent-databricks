@@ -1,5 +1,6 @@
-"""Backend serverless del Profesor Oak en Vercel (reglas/04-frontend.md,
-reglas/07-estado-actual.md Fase 5).
+"""Backend FastAPI del Profesor Oak, corriendo como proceso Python dentro
+de la Databricks App híbrida `pokedex-backend` (reglas/04-frontend.md,
+reglas/07-estado-actual.md).
 
 Reusa agent/agent.py, hooks.py, tool_choice.py, mcp_client.py, config.py y
 system_prompt.py TAL CUAL -- no se reescribe nada de Fase 4 acá. Lo único
@@ -9,27 +10,25 @@ exponerlos como un endpoint HTTP stateless (el front manda el historial
 completo en cada request, como corresponde a la Messages API), y (3) rate
 limiting antes de pegarle al agente.
 
-Auth contra pokedex-mcp-server: mcp_client.py arma el `Config(profile=...,
-host=...)` con las mismas variables de siempre -- localmente resuelve con
-el perfil de `databricks auth login` (DATABRICKS_PROFILE). En Vercel no hay
-sesión interactiva posible, así que ahí DATABRICKS_PROFILE queda sin setear
-y hace falta DATABRICKS_CLIENT_ID/DATABRICKS_CLIENT_SECRET (service
-principal M2M) como env vars -- el `Config` de databricks-sdk los detecta
-solo, sin tocar una línea de mcp_client.py. Ese service principal todavía
-no existe (ver reglas/07-estado-actual.md); hace falta antes del deploy
-real a Vercel.
+Auth contra pokedex-mcp-server: `mcp_client.py` no necesita
+`DATABRICKS_PROFILE` ni `DATABRICKS_CLIENT_ID`/`SECRET` en producción --
+usa el service principal propio de esta app, inyectado automáticamente
+por la plataforma (mismo patrón de auth app-to-app ya validado en
+`oak_app/`). Local sigue resolviendo con el perfil de
+`databricks auth login` (`DATABRICKS_PROFILE`).
 
-Segundo intento de frontend real (reglas/07-estado-actual.md): este
-mismo archivo, sin cambios de lógica, corre TAMBIÉN como Databricks App
-(bloque `if __name__ == "__main__":` al final, aditivo -- Vercel sigue
-importando `app` vía ASGI y nunca lo ejecuta). Corriendo como Databricks
-App, `mcp_client.py` no necesita `DATABRICKS_PROFILE` ni
-`DATABRICKS_CLIENT_ID`/`SECRET` -- usa el service principal propio de
-ESTA app, inyectado automáticamente por la plataforma, mismo patrón de
-auth app-to-app ya validado en `oak_app/`.
+Arquitectura híbrida Node.js + Python (reglas/07-estado-actual.md,
+"Migración Next.js a Databricks App"): esta app corre en el MISMO proceso
+Databricks App que `frontend/` (Next.js), lanzados en paralelo por
+`concurrently` desde el `package.json` de la raíz del repo (ver `app.yaml`
+también en la raíz). Next.js recibe el tráfico público en
+`DATABRICKS_APP_PORT`; este server FastAPI escucha en loopback puro
+(`127.0.0.1:8001`, ver `__main__` abajo) y nunca es alcanzable desde
+afuera -- Next.js le proxea `/api/*` server-side vía `rewrites()` en
+`frontend/next.config.ts`. Por eso no hace falta CORS: el browser solo le
+habla a Next.js, nunca directo a este proceso.
 """
 
-import os
 import sys
 from pathlib import Path
 
@@ -40,23 +39,13 @@ from agent import Agent  # noqa: E402
 from mcp_client import PokedexMCPClient  # noqa: E402
 
 from fastapi import FastAPI, HTTPException, Request  # noqa: E402
-from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
 from .rate_limit import check_rate_limit  # noqa: E402
 from .render import build_render  # noqa: E402
 from .serialize import serialize_messages  # noqa: E402
 
-FRONTEND_ORIGIN = os.environ.get("FRONTEND_ORIGIN", "http://localhost:3000")
-
 app = FastAPI()
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[FRONTEND_ORIGIN],
-    allow_methods=["POST"],
-    allow_headers=["Content-Type"],
-)
 
 
 class ChatRequest(BaseModel):
@@ -76,6 +65,11 @@ class ChatResponse(BaseModel):
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat(body: ChatRequest, request: Request) -> ChatResponse:
+    # Con Next.js proxeando server-side (ver docstring del módulo), esta IP
+    # es siempre 127.0.0.1 -- el rate limit queda compartido entre todos los
+    # usuarios reales, no por-usuario. Suficiente para el placeholder actual
+    # (reglas/04-frontend.md); si esto se vuelve un problema real, la key
+    # tiene que salir de un header propio (ej. cookie de sesión), no de la IP.
     client_key = request.client.host if request.client else "unknown"
     if not check_rate_limit(client_key):
         raise HTTPException(status_code=429, detail="Demasiadas consultas -- esperá un minuto.")
@@ -95,15 +89,20 @@ async def chat(body: ChatRequest, request: Request) -> ChatResponse:
 
 
 if __name__ == "__main__":
-    # Databricks App (reglas/07-estado-actual.md -- segundo intento de
-    # frontend real, esqueleto de validación): Vercel importa `app`
-    # directo vía el entrypoint ASGI y nunca corre este bloque, así que
-    # esto es aditivo, no rompe nada del deploy actual. `python -m
-    # backend.app` (no `python backend/app.py`) para que los imports
-    # relativos (.rate_limit, .render, .serialize) resuelvan -- corrido
-    # como script perdería el paquete `backend`. DATABRICKS_APP_PORT lo
-    # inyecta la plataforma, mismo patrón que mcp_server/app.py.
+    # `python -m backend.app` (no `python backend/app.py`) para que los
+    # imports relativos (.rate_limit, .render, .serialize) resuelvan --
+    # corrido como script perdería el paquete `backend`.
+    #
+    # host=127.0.0.1 a propósito, NO 0.0.0.0: DATABRICKS_APP_PORT (el único
+    # puerto público de la Databricks App) lo toma Next.js, corriendo en
+    # paralelo (ver package.json/app.yaml de la raíz). Este proceso escucha
+    # en un puerto fijo de loopback puro -- nunca alcanzable desde afuera del
+    # contenedor -- y Next.js le proxea /api/* server-side (rewrites() en
+    # frontend/next.config.ts). 8001, no 8000 -- DATABRICKS_APP_PORT resultó
+    # ser 8000 en este workspace (hallazgo real en vivo: los dos procesos
+    # intentaron bindear el mismo puerto y el backend murió con "address
+    # already in use"). Mismo puerto fijo hardcodeado en los dos lados a
+    # propósito, no hace falta una env var para esto.
     import uvicorn
 
-    port = int(os.environ.get("DATABRICKS_APP_PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(app, host="127.0.0.1", port=8001)

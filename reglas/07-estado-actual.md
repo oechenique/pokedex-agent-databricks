@@ -1,6 +1,6 @@
 # 07 — Estado actual del proyecto
 
-_Última actualización: `tests/` cerrado (7 carpetas, todas contra el sistema real, 18/18 passed), 2026-09-20._
+_Última actualización: app híbrida Next.js + FastAPI sobre `pokedex-backend` validada en vivo extremo a extremo (home + `/api/chat` con datos reales), 2026-09-21._
 
 ## Qué está cerrado
 
@@ -143,10 +143,27 @@ Nota de limpieza: el build standalone de Next.js (`frontend_app/.next/standalone
 
 `pokedex-oak` sigue como demo funcionando sin tocar mientras tanto.
 
+## App híbrida Next.js + FastAPI sobre `pokedex-backend` -- validada en vivo (2026-09-21)
+
+Implementación de la Opción 2 decidida ayer: en vez de una 4ta app, `pokedex-backend` (ya existía, FastAPI) pasa a servir TAMBIÉN el frontend Next.js, en el mismo proceso Databricks App -- confirmado contra la doc oficial antes de escribir código (docs.databricks.com/dev-tools/databricks-apps/deploy, sección de build híbrido Node+Python): un `package.json` en la raíz de `source_code_path` hace que la plataforma corra `npm install`/`npm run build` además de `pip install`, y si no hay `command` explícito en `app.yaml` corre `npm run start` -- para levantar los dos procesos a la vez hace falta un script propio con `concurrently`.
+
+**Arquitectura final:** `package.json`/`app.yaml` en la raíz del repo (ya no adentro de `backend/`, dejaron de ser backend-específicos). `npm start` corre `concurrently` con dos comandos: `next start -p $DATABRICKS_APP_PORT` (puerto público) y `python -m backend.app` (loopback puro, `127.0.0.1:8001`, nunca alcanzable desde afuera). Next.js proxea `/api/*` al backend server-side vía `rewrites()` en `frontend/next.config.ts` -- mismo rewrite corre en `next dev`, así que local tampoco necesita una URL de backend propia (`frontend/src/lib/api.ts` pasó a pegarle a `/api/chat` con path relativo). Con todo en el mismo origin, `CORSMiddleware` de `backend/app.py` se eliminó -- ya no hace falta. `terraform/backend_app.tf` sube `frontend/` archivo por archivo (mismo patrón que `backend/`/`agent/`, sin `node_modules`/`.next` -- Databricks Apps los genera solo con el build).
+
+**Hallazgo real en vivo -- colisión de puertos.** El primer intento hardcodeó el puerto interno del backend en `8000` (mismo valor típico usado en `backend/app.py` históricamente). Pero en este workspace `DATABRICKS_APP_PORT` (el puerto público que toma Next.js) resultó ser justo `8000` -- los dos procesos intentaron bindear el mismo puerto, el backend murió al arrancar (`[Errno 98] address already in use`) y `concurrently --kill-others` tiró abajo a Next.js también. Fix: puerto interno del backend movido a `8001` fijo (hardcodeado en `backend/app.py` y en `frontend/next.config.ts`, sin env var -- no hace falta, son dos lados de un contrato fijo).
+
+**Hallazgo operativo -- `databricks_app` con `source_code_path` no soporta ningún update in-place**, ni siquiera cambiar `description`: mismo bug documentado más abajo ("Deploy de un `databricks_app` vía Terraform: notas operativas") pero confirmado de nuevo acá con el mensaje exacto `deployment_source.source_code_path cannot be set on UpdateApp`. Fix de siempre: `terraform apply -replace=databricks_app.backend_app`. El primer intento de recreate falló con `"reached the maximum limit of 3 apps"` porque el delete es asíncrono (`DELETING` unos segundos) -- hubo que esperar a que `databricks apps list` dejara de listar la app antes de reintentar el create solo. Recrear la app le cambió el `service_principal_client_id` (como ya estaba documentado), lo que pisó el `access_control` que le daba `CAN_USE` sobre `pokedex-mcp-server` en `permissions.tf` -- hubo que regenerar ese plan (el guardado había quedado stale por el cambio de estado) y reaplicarlo para agregar el client_id nuevo sin tocar los otros dos (`backend_m2m`, `oak_frontend`).
+
+**Hallazgo real -- una excepción de MCP sin permisos dejó el proceso backend en mal estado para el siguiente request.** El primer POST `/api/chat` real (antes de que el grant de `CAN_USE` se aplicara) falló limpio con `MCPError` en `session.initialize()` (401 de `pokedex-mcp-server`, esperable). Pero ese fallo dejó una excepción de fondo sin resolver en el cancel scope de `anyio` (`RuntimeError: Attempted to exit cancel scope in a different task`) -- el próximo intento, ya con el grant aplicado, resultó en `ECONNRESET`/`socket hang up` en vez de una respuesta real, sin que el proceso Python llegara a loguear el request. Un redeploy (proceso fresco) resolvió el segundo intento sin tocar código. No se investigó más a fondo el bug de `anyio`/`mcp` en sí -- queda como algo a tener en cuenta si un 401/error de MCP dentro de `/api/chat` deja intentos posteriores colgados en vez de fallar limpio.
+
+**Validado en vivo, extremo a extremo, con datos reales:** navegador real (login vía Microsoft Entra ID, consentimiento OAuth de la app recreada -- hecho a mano por el usuario, Databricks bloquea clicks automatizados en su propia consola) contra `https://pokedex-backend-7405616363788532.12.azure.databricksapps.com/`. Home de Next.js (`Pokédex — Edición Día/Noche`) sirve correctamente, y "Contame sobre Pikachu" devolvió la `PokemonCard` real (stats, sprite de PokeAPI, lore en español) más la respuesta en prosa de Oak -- el pipeline completo Next.js → FastAPI (loopback) → agente → MCP → Gold funcionando en una sola Databricks App.
+
+**Qué NO se portó todavía (a propósito, "empezá chico"):** solo la home + `/api/chat` se validaron. El resto de componentes de `frontend/` (comparación, matchups, día/noche -- el código ya existe, se subió tal cual con el resto de `frontend/`) no se probó en esta pasada; deberían andar porque es el mismo `page.tsx`/`ChatTurn` de siempre, pero falta click-through real de esos casos.
+
 ## Qué falta
 
-- Deploy de producción a Vercel: sigue bloqueado (ver sección de arriba), pero ya no es el plan activo -- no requiere acción a menos que se retome ese camino.
-- **Migración a Databricks Apps (frontend Next.js):** retomar con la Opción 2 de la sección de arriba -- combinar frontend + backend en una sola app para caber en el cupo de 3.
+- **Probar en vivo el resto de la UI portada** (comparación, matchups de tipo, toggle día/noche, multi-agente) contra `pokedex-backend` -- el código ya está subido, falta el click-through real de cada caso (ver sección de arriba).
+- Deploy de producción a Vercel: sigue bloqueado (ver sección de más arriba), descartado como plan activo -- no requiere acción a menos que se retome ese camino.
+- Limpieza pendiente: `/Shared/pokedex/frontend_app` (build standalone huérfano del intento de 4ta app, ~1100 archivos) sigue en el Workspace sin una app que lo sirva -- no es Terraform, limpiar a mano si se decide abandonar del todo esa idea.
 - **Docs HTML para el video** — falta armar la documentación/presentación en HTML pensada para grabar el video de demo del proyecto.
 
 ## Recursos vivos en Azure ahora mismo
@@ -163,9 +180,9 @@ Todo esto sigue consumiendo el crédito del workspace pago mientras exista:
 | Job | `pokedex-pipeline` (`103793069144325`) — bronze×5 → silver_transform → dq_check → gold_aggregate | solo corre on-demand, no consume nada parado |
 | **Databricks App** | `pokedex-mcp-server` — compute `MEDIUM` | **`RUNNING` de forma continua** — a diferencia del warehouse y el job, esto es cómputo prendido todo el tiempo. Si el crédito aprieta, se puede parar con `databricks apps stop pokedex-mcp-server` y volver a levantar cuando se retome Fase 4 (`databricks apps start`), sin perder nada (el código y el estado quedan en Terraform/workspace). |
 | **Databricks App** | `pokedex-oak` — frontend Streamlit (esqueleto validado, 2026-09-20) | `RUNNING` — segunda app siempre prendida, mismo criterio que `pokedex-mcp-server` para pausarla si aprieta el crédito. |
-| **Databricks App** | `pokedex-backend` — FastAPI, backend del intento de migración a Databricks Apps (validado, 2026-09-20) | `RUNNING` — 3ra app, cupo del workspace ya al límite (ver "Migración Next.js a Databricks App" arriba). |
-| Workspace Files (huérfanos, sin app) | `/Shared/pokedex/frontend_app` — build standalone de Next.js completo | Subido pero sin `databricks_app` que lo sirva (bloqueado por el cupo de 3 apps) -- no es Terraform, limpiar a mano si se abandona la Opción 2. |
+| **Databricks App** | `pokedex-backend` — app híbrida Next.js + FastAPI (validada extremo a extremo, 2026-09-21) | `RUNNING` — 3ra app, cupo del workspace al límite (esperado, es la solución al cupo -- ver sección de arriba). Recreada el 2026-09-21 (`-replace`, service principal nuevo), grants de `CAN_USE` sobre `pokedex-mcp-server` reaplicados. |
+| Workspace Files (huérfanos, sin app) | `/Shared/pokedex/frontend_app` — build standalone de Next.js del intento de 4ta app abandonado | Subido pero sin `databricks_app` que lo sirva -- no es Terraform, limpiar a mano si se decide abandonar del todo esa idea (ver "Qué falta"). |
 
 ## Próximo paso concreto para arrancar mañana
 
-Retomar la Opción 2 de "Migración Next.js a Databricks App": combinar frontend Next.js y backend en una sola Databricks App para caber en el cupo de 3, en vez de `pokedex-web` + `pokedex-backend` separadas. Si se abandona ese camino, lo demás planeado está cerrado y solo queda la docs HTML del video de demo. Si el crédito del workspace aprieta, considerar `databricks apps stop pokedex-mcp-server`/`pokedex-oak`/`pokedex-backend` (queda todo en Terraform/workspace, se vuelve a levantar con `databricks apps start` cuando haga falta).
+Portar y probar en vivo el resto de la UI (comparación, matchups, día/noche, multi-agente) contra `pokedex-backend` -- el código ya viajó con el resto de `frontend/`, falta el click-through real de cada caso. Si eso cierra sin sorpresas, lo único que queda es la docs HTML del video de demo. Si el crédito del workspace aprieta, considerar `databricks apps stop pokedex-mcp-server`/`pokedex-oak`/`pokedex-backend` (queda todo en Terraform/workspace, se vuelve a levantar con `databricks apps start` cuando haga falta).
