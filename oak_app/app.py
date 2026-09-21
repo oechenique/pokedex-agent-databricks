@@ -343,13 +343,17 @@ if "turns" not in st.session_state:
 
 for role, text, render, trace in st.session_state.turns:
     with st.chat_message(role):
-        if text:
-            st.markdown(text)
+        # Tarjeta ANCLA primero, comentario de Oak DESPUÉS (reglas/04-
+        # frontend.md) -- invertido daba una prosa repitiendo en bullets
+        # lo mismo que la tarjeta ya muestra, antes de que la tarjeta
+        # apareciera.
         if render is not None:
             try:
                 _render_turn(render)
             except Exception as e:
                 st.exception(e)
+        if text:
+            st.markdown(text)
         _render_subagent_trace(trace)
 
 user_message = st.chat_input("Preguntale algo a Profesor Oak (ficha, comparación, matchups de tipo)...")
@@ -374,10 +378,12 @@ if user_message:
                 st.error(f"Error hablando con pokedex-mcp-server: {e!r}")
             else:
                 st.session_state.history = full_history
-                st.markdown(reply)
+                # Tarjeta primero, comentario de Oak después -- ver nota
+                # arriba en el loop de historial.
                 try:
                     _render_turn(render)
                 except Exception as e:
                     st.exception(e)
+                st.markdown(reply)
                 _render_subagent_trace(trace)
                 st.session_state.turns.append(("assistant", reply, render, trace))
