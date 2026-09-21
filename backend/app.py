@@ -18,6 +18,15 @@ principal M2M) como env vars -- el `Config` de databricks-sdk los detecta
 solo, sin tocar una línea de mcp_client.py. Ese service principal todavía
 no existe (ver reglas/07-estado-actual.md); hace falta antes del deploy
 real a Vercel.
+
+Segundo intento de frontend real (reglas/07-estado-actual.md): este
+mismo archivo, sin cambios de lógica, corre TAMBIÉN como Databricks App
+(bloque `if __name__ == "__main__":` al final, aditivo -- Vercel sigue
+importando `app` vía ASGI y nunca lo ejecuta). Corriendo como Databricks
+App, `mcp_client.py` no necesita `DATABRICKS_PROFILE` ni
+`DATABRICKS_CLIENT_ID`/`SECRET` -- usa el service principal propio de
+ESTA app, inyectado automáticamente por la plataforma, mismo patrón de
+auth app-to-app ya validado en `oak_app/`.
 """
 
 import os
@@ -83,3 +92,18 @@ async def chat(body: ChatRequest, request: Request) -> ChatResponse:
     render = build_render(full_history[history_len:])
 
     return ChatResponse(reply=reply, history=full_history, render=render)
+
+
+if __name__ == "__main__":
+    # Databricks App (reglas/07-estado-actual.md -- segundo intento de
+    # frontend real, esqueleto de validación): Vercel importa `app`
+    # directo vía el entrypoint ASGI y nunca corre este bloque, así que
+    # esto es aditivo, no rompe nada del deploy actual. `python -m
+    # backend.app` (no `python backend/app.py`) para que los imports
+    # relativos (.rate_limit, .render, .serialize) resuelvan -- corrido
+    # como script perdería el paquete `backend`. DATABRICKS_APP_PORT lo
+    # inyecta la plataforma, mismo patrón que mcp_server/app.py.
+    import uvicorn
+
+    port = int(os.environ.get("DATABRICKS_APP_PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)

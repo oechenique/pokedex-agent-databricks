@@ -68,4 +68,9 @@ resource "databricks_permissions" "backend_m2m_app_use" {
     service_principal_name = databricks_app.oak_frontend.service_principal_client_id
     permission_level       = "CAN_USE"
   }
+
+  access_control {
+    service_principal_name = databricks_app.backend_app.service_principal_client_id
+    permission_level       = "CAN_USE"
+  }
 }

@@ -129,9 +129,24 @@ Las 7 carpetas del mapa de `reglas/06-ccaf-mapa-y-convenciones.md`. Todo lo que 
 
 Hallazgo real en el camino: `backend_m2m` (el service principal M2M, mismo perfil de permisos que `oak_app`) no tenía el entitlement de workspace `databricks_sql_access` -- sin él, la SQL Statement Execution API rechaza cualquier query de ese SP antes de evaluar el schema, sin importar el catálogo/schema target (no tiene nada que ver con los grants de Unity Catalog). Se habilitó en `terraform/permissions.tf` (update in-place) para poder correr `tests/permissions/` en vivo -- ese SP nunca lo había necesitado porque su uso original era llamar al MCP server, no correr SQL directo.
 
+## Migración Next.js a Databricks App (2026-09-20)
+
+Contexto: se intentó migrar `frontend/` + `backend/` de Vercel a Databricks Apps (Node.js + Python, soporte oficial confirmado) para esquivar el bloqueo de M2M a Vercel (ver sección de arriba), usando la misma auth automática app-to-app que ya corre en `pokedex-oak` -- `WorkspaceClient()`/`Config()` sin credenciales explícitas, nada de M2M.
+
+`pokedex-backend` (FastAPI, `terraform/backend_app.tf`) ya está desplegado y **validado funcionando**: autentica solo contra `pokedex-mcp-server` sin `DATABRICKS_CLIENT_ID`/`SECRET`, confirmado con una consulta real de Pikachu vía el agente completo (Agent + hooks + tool_choice) devolviendo datos reales de Gold. Eso quedó cerrado antes de toparnos con el bloqueo de abajo.
+
+**Bloqueo encontrado:** tope real de **3 Databricks Apps por workspace**, ya en el límite (`pokedex-mcp-server`, `pokedex-oak`, `pokedex-backend` ya cuenta como la 3ra). No es un límite de Azure ni de cuota de recursos -- es un límite de la plataforma Databricks Apps en sí. No hay resolución self-service conocida (no es un `databricks_workspace` setting ni algo gestionable vía Terraform). Crear una 4ta app (`pokedex-web`, el frontend Next.js) falla con `"Workspace ... has reached the maximum limit of 3 apps"` de forma consistente, no transitoria (se descartó condición de carrera del delete asíncrono de `-replace`, que sí explicó un falso positivo anterior con `pokedex-backend`).
+
+Nota de limpieza: el build standalone de Next.js (`frontend_app/.next/standalone/`) ya se subió por completo a `/Shared/pokedex/frontend_app` vía `databricks workspace import-dir` (node_modules incluido, ~1100 archivos) esperando la creación de la app -- son archivos de Workspace huérfanos hasta que se resuelva esto, no un recurso de Terraform (no aparecen en `terraform plan`).
+
+**Decisión para retomar:** Opción 2 -- combinar frontend Next.js y backend en una sola Databricks App (Next.js sirve `/api/chat` internamente, o vía un proceso Python embebido), para caber en el cupo de 3 sin depender de pedir aumento de límite. No implementado todavía, solo decidido.
+
+`pokedex-oak` sigue como demo funcionando sin tocar mientras tanto.
+
 ## Qué falta
 
 - Deploy de producción a Vercel: sigue bloqueado (ver sección de arriba), pero ya no es el plan activo -- no requiere acción a menos que se retome ese camino.
+- **Migración a Databricks Apps (frontend Next.js):** retomar con la Opción 2 de la sección de arriba -- combinar frontend + backend en una sola app para caber en el cupo de 3.
 - **Docs HTML para el video** — falta armar la documentación/presentación en HTML pensada para grabar el video de demo del proyecto.
 
 ## Recursos vivos en Azure ahora mismo
@@ -148,7 +163,9 @@ Todo esto sigue consumiendo el crédito del workspace pago mientras exista:
 | Job | `pokedex-pipeline` (`103793069144325`) — bronze×5 → silver_transform → dq_check → gold_aggregate | solo corre on-demand, no consume nada parado |
 | **Databricks App** | `pokedex-mcp-server` — compute `MEDIUM` | **`RUNNING` de forma continua** — a diferencia del warehouse y el job, esto es cómputo prendido todo el tiempo. Si el crédito aprieta, se puede parar con `databricks apps stop pokedex-mcp-server` y volver a levantar cuando se retome Fase 4 (`databricks apps start`), sin perder nada (el código y el estado quedan en Terraform/workspace). |
 | **Databricks App** | `pokedex-oak` — frontend Streamlit (esqueleto validado, 2026-09-20) | `RUNNING` — segunda app siempre prendida, mismo criterio que `pokedex-mcp-server` para pausarla si aprieta el crédito. |
+| **Databricks App** | `pokedex-backend` — FastAPI, backend del intento de migración a Databricks Apps (validado, 2026-09-20) | `RUNNING` — 3ra app, cupo del workspace ya al límite (ver "Migración Next.js a Databricks App" arriba). |
+| Workspace Files (huérfanos, sin app) | `/Shared/pokedex/frontend_app` — build standalone de Next.js completo | Subido pero sin `databricks_app` que lo sirva (bloqueado por el cupo de 3 apps) -- no es Terraform, limpiar a mano si se abandona la Opción 2. |
 
 ## Próximo paso concreto para arrancar mañana
 
-Todas las fases planeadas están cerradas. Lo único que queda es opcional: la docs HTML para el video de demo. Antes de eso, si el crédito del workspace aprieta, considerar `databricks apps stop pokedex-mcp-server`/`pokedex-oak` (queda todo en Terraform/workspace, se vuelve a levantar con `databricks apps start` cuando haga falta).
+Retomar la Opción 2 de "Migración Next.js a Databricks App": combinar frontend Next.js y backend en una sola Databricks App para caber en el cupo de 3, en vez de `pokedex-web` + `pokedex-backend` separadas. Si se abandona ese camino, lo demás planeado está cerrado y solo queda la docs HTML del video de demo. Si el crédito del workspace aprieta, considerar `databricks apps stop pokedex-mcp-server`/`pokedex-oak`/`pokedex-backend` (queda todo en Terraform/workspace, se vuelve a levantar con `databricks apps start` cuando haga falta).
