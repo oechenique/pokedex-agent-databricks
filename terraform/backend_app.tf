@@ -51,6 +51,7 @@ locals {
     "oak-text.tsx",
     "pokemon-card.module.css", "pokemon-card.tsx",
     "stat-bar.module.css", "stat-bar.tsx",
+    "subagent-trace.module.css", "subagent-trace.tsx",
     "type-badge.module.css", "type-badge.tsx",
     "type-matchups.module.css", "type-matchups.tsx",
   ])

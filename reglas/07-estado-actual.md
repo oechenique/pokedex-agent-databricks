@@ -1,6 +1,6 @@
 # 07 — Estado actual del proyecto
 
-_Última actualización: app híbrida Next.js + FastAPI sobre `pokedex-backend` validada en vivo extremo a extremo (home + `/api/chat` con datos reales), 2026-09-21._
+_Última actualización: los 4 formatos de UI (comparación, matchups, día/noche, multi-agente) validados en vivo contra `pokedex-backend`, multi-agente portado por primera vez a la app híbrida, 2026-09-21._
 
 ## Qué está cerrado
 
@@ -159,9 +159,26 @@ Implementación de la Opción 2 decidida ayer: en vez de una 4ta app, `pokedex-b
 
 **Qué NO se portó todavía (a propósito, "empezá chico"):** solo la home + `/api/chat` se validaron. El resto de componentes de `frontend/` (comparación, matchups, día/noche -- el código ya existe, se subió tal cual con el resto de `frontend/`) no se probó en esta pasada; deberían andar porque es el mismo `page.tsx`/`ChatTurn` de siempre, pero falta click-through real de esos casos.
 
+## Resto de la UI portada y validada en vivo, un caso a la vez (2026-09-21)
+
+Los 4 casos pendientes de la sección anterior, cada uno probado en el navegador real contra `pokedex-backend` antes de seguir con el siguiente (no se asumió "el código ya viajó" como suficiente).
+
+**Caso 1 -- Comparación ("Comparame a Charizard contra Blastoise").** Reveló un bug real: el primer intento dio `"El backend respondió 500"`, pero no era un 500 real -- `rewrites()` de Next.js tiene un timeout hardcodeado de **30s** (`experimental.proxyTimeout`, confirmado leyendo `frontend/node_modules/next/dist/server/lib/router-utils/proxy-request.js` de la versión instalada -- Next 16 cambió bastante y `frontend/AGENTS.md` pide no asumir de memoria). La ficha de un pokemon (1 tool call) entra bajo ese límite; comparar (2 tool calls + más texto) no. Next.js cortaba la conexión (`socket hang up`/`ECONNRESET`) antes de que el backend terminara, sin que este llegara a loguear el request. Fix: `experimental.proxyTimeout` explícito en `frontend/next.config.ts`. Con eso, `CompareTable` renderiza bien (sprites, tipos, stats lado a lado, ganador en negrita, total) más el análisis de Oak.
+
+**Caso 2 -- Matchups de tipo ("Dame los matchups de tipo fuego").** `TypeMatchupBadges` renderiza bien, badges agrupados por efectividad (Débil a/Resiste/Fuerte contra/Poco efectivo), no párrafo. Sin hallazgos nuevos.
+
+**Caso 3 -- Tema Día/Noche.** El toggle (`next-themes`, ya existía de Fase 5) funciona igual en `pokedex-backend` que en el intento anterior de Vercel -- cambia paleta completa (pastel cálido/dorado en Día). Sin hallazgos nuevos.
+
+**Caso 4 -- Multi-agente.** A diferencia de los 3 anteriores, este **nunca había viajado a `frontend/`/`backend/`** -- el coordinador + subagentes (Fase 6, `agent/orchestrator.py`/`subagents.py`) solo existían en `oak_app/` (Streamlit). Se paró la sesión para confirmar el alcance con el usuario antes de improvisarlo (real trabajo nuevo, no solo porting) -- se decidió implementarlo ahora, replicando el mismo contrato que ya usa `oak_app`:
+- `backend/app.py`: `ChatRequest.multi_agent` (toggle del front) OR-eado con `orchestrator.should_use_multi_agent(mensaje)` (heurística por keywords -- "análisis completo", etc., mismo criterio que `oak_app`). En modo multi-agente llama a `run_multi_agent()` en vez de `agent.send()`, arma el historial en el mismo formato que el modo single (para que la charla pueda seguir después), y devuelve un campo nuevo `trace: list[dict]` con un dict por `SubagentResult` (role/goal/quality_criteria/summary/structured_data/tool_calls) -- `[]` en modo single.
+- `frontend/`: toggle "🧩 Multi-agente" en el header (`page.tsx`, junto al `ThemeToggle`), tipo `SubagentTrace` nuevo en `types.ts`, `sendChatMessage` manda `multi_agent`, y un componente nuevo `subagent-trace.tsx` (`<details>` nativo, mismo criterio que el expander de Streamlit) muestra el objetivo/criterio/tools/resumen de cada subagente -- se engancha en `chat-turn.tsx` después del render normal (pokemon/compare/matchups/text), para cualquiera de los 4 kinds, porque el `render` final del multi-agente puede terminar en cualquiera según qué `structured_data` trajo el equipo (mismo comportamiento que ya tenía `orchestrator.py`, no se tocó esa lógica).
+
+**Hallazgo real -- el mismo bug del proxyTimeout, pero peor.** Multi-agente corrió con `proxyTimeout: 120000` (heredado del fix del caso 1) y volvió a dar `socket hang up`. Causa: `orchestrator.run_multi_agent` corre los subagentes **en serie** (`for d in delegations: await run_subagent(...)`, no paralelo) -- plan (1 llamada) + hasta 3 subagentes (cada uno 1+ llamadas con su propio loop de tool_use) + síntesis final (1 llamada), todas secuenciales contra la Messages API real. Confirmado en vivo que "análisis completo de Gengar" (dispara los 3 subagentes) tardó más de 120s reales. Fix: `proxyTimeout` subido a **300000 (5 min)**. Probado de nuevo con los 3 subagentes: `pokemon_researcher` (stats/tipos reales), `battle_analyst` (matchups verificados con datos reales, no inventados), `data_librarian` (lore real de `gold.pokemon_profile`, y explícito sobre qué NO puede responder -- popularidad/rol en anime/etc. -- por no tener esa fuente, en vez de inventarlo). Panel "Cómo trabajó el equipo" muestra los 3 con su trazabilidad completa.
+
+**No resuelto, a propósito:** la latencia real del modo multi-agente (subagentes en serie) no se optimizó -- sería tocar `agent/orchestrator.py`, que también usa `oak_app`, y no era el pedido de esta sesión (portar, no rehacer la arquitectura del coordinador). Si esto se vuelve un problema de UX real, la vía obvia es paralelizar `run_subagent()` con `asyncio.gather` en vez de subir el timeout más todavía.
+
 ## Qué falta
 
-- **Probar en vivo el resto de la UI portada** (comparación, matchups de tipo, toggle día/noche, multi-agente) contra `pokedex-backend` -- el código ya está subido, falta el click-through real de cada caso (ver sección de arriba).
 - Deploy de producción a Vercel: sigue bloqueado (ver sección de más arriba), descartado como plan activo -- no requiere acción a menos que se retome ese camino.
 - Limpieza pendiente: `/Shared/pokedex/frontend_app` (build standalone huérfano del intento de 4ta app, ~1100 archivos) sigue en el Workspace sin una app que lo sirva -- no es Terraform, limpiar a mano si se decide abandonar del todo esa idea.
 - **Docs HTML para el video** — falta armar la documentación/presentación en HTML pensada para grabar el video de demo del proyecto.
@@ -185,4 +202,4 @@ Todo esto sigue consumiendo el crédito del workspace pago mientras exista:
 
 ## Próximo paso concreto para arrancar mañana
 
-Portar y probar en vivo el resto de la UI (comparación, matchups, día/noche, multi-agente) contra `pokedex-backend` -- el código ya viajó con el resto de `frontend/`, falta el click-through real de cada caso. Si eso cierra sin sorpresas, lo único que queda es la docs HTML del video de demo. Si el crédito del workspace aprieta, considerar `databricks apps stop pokedex-mcp-server`/`pokedex-oak`/`pokedex-backend` (queda todo en Terraform/workspace, se vuelve a levantar con `databricks apps start` cuando haga falta).
+La app híbrida está funcionalmente completa y validada -- los 4 formatos (ficha, comparación, matchups, multi-agente) y el tema día/noche funcionan en vivo contra `pokedex-backend`. Lo único que queda planeado es la docs HTML del video de demo. Si el crédito del workspace aprieta, considerar `databricks apps stop pokedex-mcp-server`/`pokedex-oak`/`pokedex-backend` (queda todo en Terraform/workspace, se vuelve a levantar con `databricks apps start` cuando haga falta).

@@ -37,6 +37,7 @@ sys.path.insert(0, str(AGENT_DIR))
 
 from agent import Agent  # noqa: E402
 from mcp_client import PokedexMCPClient  # noqa: E402
+from orchestrator import run_multi_agent, should_use_multi_agent  # noqa: E402
 
 from fastapi import FastAPI, HTTPException, Request  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
@@ -51,6 +52,11 @@ app = FastAPI()
 class ChatRequest(BaseModel):
     message: str
     history: list[dict] = []
+    # Toggle del front (Fase 6, orchestrator.py) -- se OR-ea con la
+    # heurística de should_use_multi_agent, mismo criterio que oak_app: el
+    # toggle fuerza el modo, pero una pregunta de análisis completo lo activa
+    # sola aunque el toggle esté apagado.
+    multi_agent: bool = False
 
 
 class ChatResponse(BaseModel):
@@ -61,6 +67,11 @@ class ChatResponse(BaseModel):
     # | {"kind": "matchups", "matchups": {...}}. Derivado de los tool_result
     # reales de este turno, ver render.py -- nunca inventado.
     render: dict
+    # Traza del equipo (coordinador + subagentes) cuando el turno corrió en
+    # modo multi-agente -- [] en modo single. Un dict por SubagentResult
+    # (role/goal/quality_criteria/summary/structured_data/tool_calls), mismo
+    # contenido que el expander "Cómo trabajó el equipo" de oak_app.
+    trace: list[dict] = []
 
 
 @app.post("/api/chat", response_model=ChatResponse)
@@ -75,17 +86,44 @@ async def chat(body: ChatRequest, request: Request) -> ChatResponse:
         raise HTTPException(status_code=429, detail="Demasiadas consultas -- esperá un minuto.")
 
     history_len = len(body.history)
+    multi_agent = body.multi_agent or should_use_multi_agent(body.message)
 
     async with PokedexMCPClient() as mcp:
         agent = Agent(mcp)
         await agent.load_tools()
+
+        if multi_agent:
+            # Coordinador + subagentes (orchestrator.py) -- mismo patrón que
+            # oak_app: el historial de la charla sigue el formato de agent.
+            # Agent (para que un turno normal después pueda continuarla),
+            # pero sin el detalle interno de cada subagente -- eso nunca fue
+            # parte de la conversación con el usuario, solo del panel de
+            # trazabilidad.
+            result = await run_multi_agent(body.message, mcp, agent.tools)
+            full_history = list(body.history) + [
+                {"role": "user", "content": body.message},
+                {"role": "assistant", "content": [{"type": "text", "text": result.reply}]},
+            ]
+            trace = [
+                {
+                    "role": r.role,
+                    "goal": r.goal,
+                    "quality_criteria": r.quality_criteria,
+                    "summary": r.summary,
+                    "structured_data": r.structured_data,
+                    "tool_calls": r.tool_calls,
+                }
+                for r in result.trace
+            ]
+            return ChatResponse(reply=result.reply, history=full_history, render=result.render, trace=trace)
+
         agent.messages = body.history
         reply = await agent.send(body.message)
 
     full_history = serialize_messages(agent.messages)
     render = build_render(full_history[history_len:])
 
-    return ChatResponse(reply=reply, history=full_history, render=render)
+    return ChatResponse(reply=reply, history=full_history, render=render, trace=[])
 
 
 if __name__ == "__main__":

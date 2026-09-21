@@ -16,6 +16,11 @@ export default function Home() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Fase 6 (agent/orchestrator.py): fuerza coordinador + 3 subagentes en vez
+  // del agente single. El backend además lo activa solo si el mensaje pide
+  // un análisis completo (should_use_multi_agent) -- este toggle es un OR,
+  // no la única forma de entrar al modo multi-agente.
+  const [forceMultiAgent, setForceMultiAgent] = useState(false);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -28,9 +33,11 @@ export default function Home() {
     setError(null);
 
     try {
-      const res = await sendChatMessage(message, history);
+      const res = await sendChatMessage(message, history, forceMultiAgent);
       const content: OakMessage =
-        res.render.kind === "text" ? { kind: "text", text: res.reply } : { ...res.render, text: res.reply };
+        res.render.kind === "text"
+          ? { kind: "text", text: res.reply, trace: res.trace }
+          : { ...res.render, text: res.reply, trace: res.trace };
 
       setTurns((prev) => [...prev, { id: nextTurnId(), role: "oak", content }]);
       setHistory(res.history);
@@ -48,7 +55,18 @@ export default function Home() {
           <h1 className={styles.title}>Pokédex — Edición Día/Noche</h1>
           <p className={styles.subtitle}>Laboratorio del Profesor Oak</p>
         </div>
-        <ThemeToggle />
+        <div className={styles.headerControls}>
+          <button
+            type="button"
+            className={`${styles.multiAgentToggle} ${forceMultiAgent ? styles.multiAgentActive : ""}`}
+            onClick={() => setForceMultiAgent((v) => !v)}
+            aria-pressed={forceMultiAgent}
+            title="Coordinador + 3 subagentes (Pokemon Researcher, Battle Analyst, Data Librarian) en vez del agente single. También se activa solo si pedís un análisis completo."
+          >
+            🧩 Multi-agente
+          </button>
+          <ThemeToggle />
+        </div>
       </header>
 
       <main className={styles.chat}>
@@ -60,7 +78,13 @@ export default function Home() {
         {turns.map((turn) => (
           <ChatTurn key={turn.id} turn={turn} />
         ))}
-        {loading && <p className={styles.loading}>El Profesor está consultando sus registros…</p>}
+        {loading && (
+          <p className={styles.loading}>
+            {forceMultiAgent
+              ? "El equipo de Profesor Oak está trabajando (coordinador + subagentes)…"
+              : "El Profesor está consultando sus registros…"}
+          </p>
+        )}
         {error && <p className={styles.error}>{error}</p>}
       </main>
 

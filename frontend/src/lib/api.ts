@@ -8,12 +8,13 @@ import type { ChatApiResponse, RawHistoryMessage } from "./types";
 // que exponer.
 export async function sendChatMessage(
   message: string,
-  history: RawHistoryMessage[]
+  history: RawHistoryMessage[],
+  multiAgent: boolean
 ): Promise<ChatApiResponse> {
   const response = await fetch(`/api/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message, history }),
+    body: JSON.stringify({ message, history, multi_agent: multiAgent }),
   });
 
   if (!response.ok) {

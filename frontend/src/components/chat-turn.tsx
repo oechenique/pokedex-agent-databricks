@@ -3,6 +3,7 @@ import PokemonCard from "./pokemon-card";
 import CompareTable from "./compare-table";
 import TypeMatchupBadges from "./type-matchups";
 import OakText from "./oak-text";
+import SubagentTrace from "./subagent-trace";
 import styles from "./chat-turn.module.css";
 
 export default function ChatTurn({ turn }: { turn: ConversationTurn }) {
@@ -63,6 +64,8 @@ export default function ChatTurn({ turn }: { turn: ConversationTurn }) {
             )}
           </>
         )}
+
+        <SubagentTrace trace={content.trace} />
       </div>
     </div>
   );

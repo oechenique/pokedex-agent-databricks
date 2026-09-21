@@ -1,0 +1,77 @@
+.wrapper {
+  margin-top: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-subtle);
+  padding: 0 0.9rem;
+}
+
+.summary {
+  cursor: pointer;
+  padding: 0.6rem 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  list-style: none;
+}
+
+.summary::-webkit-details-marker {
+  display: none;
+}
+
+.body {
+  padding-bottom: 0.75rem;
+}
+
+.entry {
+  padding: 0.6rem 0;
+  border-top: 1px solid var(--border);
+}
+
+.entry:first-child {
+  border-top: none;
+}
+
+.role {
+  font-weight: 700;
+  font-size: 0.85rem;
+  margin-bottom: 0.2rem;
+  text-transform: capitalize;
+}
+
+.meta {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-bottom: 0.15rem;
+}
+
+.tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin: 0.35rem 0;
+}
+
+.toolChip {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.75rem;
+}
+
+.summaryText {
+  font-size: 0.85rem;
+  margin-top: 0.35rem;
+}
+
+.summaryText :global(p) {
+  margin-bottom: 0.4rem;
+}
+
+.summaryText :global(p:last-child) {
+  margin-bottom: 0;
+}

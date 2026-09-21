@@ -73,15 +73,28 @@ export interface ComparePokemon {
   pokemon_b: Pokemon | null;
 }
 
+// Un dict por subagente que participó del turno (Fase 6, agent/subagents.py
+// SubagentResult, serializado en backend/app.py) -- [] en modo single.
+export interface SubagentTrace {
+  role: string;
+  goal: string;
+  quality_criteria: string;
+  summary: string;
+  structured_data: Record<string, unknown>;
+  tool_calls: string[];
+}
+
 // Formato por tipo de dato (reglas/04-frontend.md): la síntesis nunca
 // fuerza todo a un único formato de render. `text` viaja en las 4 variantes
 // porque Oak siempre acompaña el dato estructurado con su lectura en prosa
 // (RULES #2 del system prompt: separar dato de tool vs. cálculo/opinión propia).
+// `trace` viaja opcional en las 4 -- el modo multi-agente puede terminar en
+// cualquiera de los 4 kinds, según qué structured_data trajo el equipo.
 export type OakMessage =
-  | { kind: "text"; text: string }
-  | { kind: "pokemon"; pokemon: Pokemon; text: string }
-  | { kind: "compare"; compare: ComparePokemon; text: string }
-  | { kind: "matchups"; matchups: TypeMatchups; text: string };
+  | { kind: "text"; text: string; trace?: SubagentTrace[] }
+  | { kind: "pokemon"; pokemon: Pokemon; text: string; trace?: SubagentTrace[] }
+  | { kind: "compare"; compare: ComparePokemon; text: string; trace?: SubagentTrace[] }
+  | { kind: "matchups"; matchups: TypeMatchups; text: string; trace?: SubagentTrace[] };
 
 export interface ConversationTurn {
   id: string;
@@ -104,4 +117,5 @@ export interface ChatApiResponse {
   reply: string;
   history: RawHistoryMessage[];
   render: ChatRender;
+  trace: SubagentTrace[];
 }

@@ -14,6 +14,19 @@ import type { NextConfig } from "next";
 const BACKEND_INTERNAL_URL = "http://127.0.0.1:8001";
 
 const nextConfig: NextConfig = {
+  // Hallazgo real en vivo: el rewrite de arriba mata la conexión a los 30s
+  // por default (server/lib/router-utils/proxy-request.js, hardcodeado
+  // cuando experimental.proxyTimeout es undefined) -- suficiente para una
+  // ficha de un pokemon (1 tool call), no para una comparación (2 tool
+  // calls + más texto generado), que tiraba "socket hang up" del lado de
+  // Next.js sin que el backend llegara a loguear el request. 120s alcanzó
+  // para comparación/matchups pero NO para multi-agente (orchestrator.py
+  // corre los subagentes en serie, no paralelo -- plan + hasta 3 subagentes
+  // + síntesis, cada uno su propia llamada a la Messages API -- probado en
+  // vivo: superó los 120s real). 300s (5 min) cubre ese caso con margen.
+  experimental: {
+    proxyTimeout: 300000,
+  },
   async rewrites() {
     return [
       {

@@ -30,6 +30,30 @@
   margin-top: 0.15rem;
 }
 
+.headerControls {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.multiAgentToggle {
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.multiAgentActive {
+  background: var(--accent-secondary-bg);
+  color: var(--accent-secondary);
+  border-color: var(--accent-secondary);
+}
+
 .chat {
   width: 100%;
   max-width: 720px;
