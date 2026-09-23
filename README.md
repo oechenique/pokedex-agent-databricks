@@ -4,6 +4,8 @@ Plataforma de datos Pokémon en Databricks (Terraform + Medallion) con un agente
 
 **Demo en vivo:** [pokedex-oak-7405616363788532.12.azure.databricksapps.com](https://pokedex-oak-7405616363788532.12.azure.databricksapps.com) — requiere login al workspace de Databricks para verla (es una Databricks App, no un sitio público).
 
+> **Infraestructura dada de baja el 2026-09-23.** El proyecto se puede redeployar con Terraform siguiendo la sección [Cómo correr todo → 1. Infra (Terraform)](#1-infra-terraform).
+
 ## Por qué este proyecto
 
 Es, a la vez, dos cosas:
